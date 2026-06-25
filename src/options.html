@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="ui.css">
+  <script src="options.js" defer></script>
+  <title>Misskey Patcher Settings</title>
+</head>
+<body>
+  <main class="options">
+    <h1>Misskey Build Page Patcher</h1>
+
+    <label>
+      <span>設定対象インスタンス</span>
+      <input id="instanceHost" type="text" list="knownInstances" placeholder="misskey.example.com">
+      <datalist id="knownInstances"></datalist>
+    </label>
+
+    <label class="row">
+      <input id="enabled" type="checkbox">
+      <span>有効</span>
+    </label>
+
+    <label class="row">
+      <input id="showBadge" type="checkbox">
+      <span>バッジを表示</span>
+    </label>
+
+    <label>
+      <span>対象ホスト</span>
+      <textarea id="allowedHosts" spellcheck="false" placeholder="空欄なら Misskey 判定された全ホスト&#10;例: misskey.example.com&#10;例: *.example.net"></textarea>
+    </label>
+
+    <label>
+      <span>追加 CSS</span>
+      <textarea id="customCss" class="code" spellcheck="false"></textarea>
+    </label>
+
+    <label>
+      <span>追加 JS</span>
+      <textarea id="customJs" class="code" spellcheck="false"></textarea>
+    </label>
+
+    <div class="actions">
+      <button id="save" type="button">保存</button>
+      <button id="reset" type="button">初期値に戻す</button>
+    </div>
+
+    <p id="status"></p>
+  </main>
+</body>
+</html>
