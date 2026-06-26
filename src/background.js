@@ -254,14 +254,30 @@ function buildUserScriptCode(userCode, pluginName, extensionVersion) {
   }
 
   function toast(message, options = {}) {
+    let container = document.querySelector('[data-misskey-patcher-toast-container="true"]');
+    if (!container) {
+      container = document.createElement('div');
+      container.dataset.misskeyPatcherToastContainer = 'true';
+      Object.assign(container.style, {
+        position: 'fixed',
+        right: '16px',
+        bottom: '16px',
+        zIndex: '2147483647',
+        display: 'flex',
+        flexDirection: 'column-reverse',
+        alignItems: 'flex-end',
+        gap: '8px',
+        maxWidth: 'min(360px, calc(100vw - 32px))',
+        pointerEvents: 'none',
+      });
+      (document.body || document.documentElement).append(container);
+    }
+
     const node = document.createElement('div');
     node.textContent = String(message);
     node.dataset.misskeyPatcherToast = 'true';
     Object.assign(node.style, {
-      position: 'fixed',
-      right: '16px',
-      bottom: '16px',
-      zIndex: '2147483647',
+      width: 'fit-content',
       maxWidth: 'min(360px, calc(100vw - 32px))',
       padding: '10px 12px',
       borderRadius: '8px',
@@ -270,9 +286,13 @@ function buildUserScriptCode(userCode, pluginName, extensionVersion) {
       boxShadow: '0 10px 32px rgb(0 0 0 / 28%)',
       font: '13px/1.45 system-ui, sans-serif',
       whiteSpace: 'pre-wrap',
+      pointerEvents: 'auto',
     });
-    (document.body || document.documentElement).append(node);
-    setTimeout(() => node.remove(), options.timeout ?? 3000);
+    container.append(node);
+    setTimeout(() => {
+      node.remove();
+      if (container.childElementCount === 0) container.remove();
+    }, options.timeout ?? 3000);
     return node;
   }
 
