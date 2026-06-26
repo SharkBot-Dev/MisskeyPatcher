@@ -50,6 +50,16 @@ input[type="text"] {
   font: 13px/1.45 system-ui, sans-serif;
 }
 
+select {
+  width: 100%;
+  border: 1px solid #cdd7c8;
+  border-radius: 6px;
+  padding: 6px;
+  background: #fff;
+  color: #1b2219;
+  font: 13px/1.45 system-ui, sans-serif;
+}
+
 textarea {
   width: 100%;
   min-height: 92px;
@@ -108,4 +118,39 @@ button:hover {
 .options {
   max-width: 920px;
   margin: 0 auto;
+}
+
+.plugin-editor {
+  display: grid;
+  gap: 12px;
+  margin-top: 8px;
+  padding-top: 16px;
+  border-top: 1px solid #dce5d7;
+}
+
+.plugin-editor h2 {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.35;
+}
+
+.plugin-editor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.plugin-editor-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.plugin-editor-actions button {
+  background: #586254;
+}
+
+.plugin-editor-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }

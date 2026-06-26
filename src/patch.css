@@ -115,21 +115,66 @@
   gap: 8px;
 }
 
+.mkp-inline-form input[type="text"],
+.mkp-inline-form select,
 .mkp-inline-form textarea {
   width: 100%;
-  min-height: 84px;
-  resize: vertical;
   border: 1px solid var(--MI_THEME-divider, rgb(0 0 0 / 16%));
   border-radius: 6px;
-  padding: 10px;
   background: var(--MI_THEME-bg, #fff);
   color: inherit;
   font: 13px/1.45 system-ui, sans-serif;
 }
 
+.mkp-inline-form input[type="text"] {
+  min-height: 36px;
+  padding: 0 10px;
+}
+
+.mkp-inline-form select {
+  min-height: 132px;
+  padding: 6px;
+}
+
+.mkp-inline-form textarea {
+  min-height: 84px;
+  resize: vertical;
+  padding: 10px;
+}
+
 .mkp-inline-form textarea.mkp-code {
   min-height: 180px;
   font-family: Consolas, "Courier New", monospace;
+}
+
+.mkp-plugin-dialog {
+  max-width: 980px;
+}
+
+.mkp-plugin-form textarea.mkp-code {
+  min-height: 280px;
+}
+
+.mkp-plugin-toolbar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.mkp-plugin-toolbar button {
+  min-height: 34px;
+  border: 0;
+  border-radius: 6px;
+  padding: 0 12px;
+  background: var(--MI_THEME-buttonBg, rgb(128 128 128 / 18%));
+  color: inherit;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.mkp-plugin-toolbar button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .mkp-inline-actions {

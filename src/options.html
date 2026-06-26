@@ -37,10 +37,35 @@
       <textarea id="customCss" class="code" spellcheck="false"></textarea>
     </label>
 
-    <label>
-      <span>追加 JS</span>
-      <textarea id="customJs" class="code" spellcheck="false"></textarea>
-    </label>
+    <section class="plugin-editor" aria-labelledby="pluginEditorTitle">
+      <div class="plugin-editor-header">
+        <h2 id="pluginEditorTitle">追加 JS プラグイン</h2>
+        <div class="plugin-editor-actions">
+          <button id="addPlugin" type="button">追加</button>
+          <button id="removePlugin" type="button">削除</button>
+        </div>
+      </div>
+
+      <label>
+        <span>プラグイン一覧</span>
+        <select id="pluginList" size="5"></select>
+      </label>
+
+      <label class="row">
+        <input id="pluginEnabled" type="checkbox">
+        <span>このプラグインを有効にする</span>
+      </label>
+
+      <label>
+        <span>プラグイン名</span>
+        <input id="pluginName" type="text" placeholder="タイムライン調整">
+      </label>
+
+      <label>
+        <span>JavaScript</span>
+        <textarea id="customJs" class="code" spellcheck="false"></textarea>
+      </label>
+    </section>
 
     <div class="actions">
       <button id="save" type="button">保存</button>

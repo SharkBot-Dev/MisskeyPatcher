@@ -8,27 +8,62 @@ Misskey `develop` は `packages/frontend/vite.config.ts` で Vite の production
 
 ## インストール
 
-1. Chrome で `chrome://extensions` を開く。
-2. Developer mode を有効にする。
-3. Load unpacked でこのディレクトリを選ぶ。
-4. 対象の Misskey インスタンスを開き直す。
+1. `npm install` と `npm run build` を実行する。
+2. Chrome で `chrome://extensions` を開く。
+3. Developer mode を有効にする。
+4. Load unpacked で `dist` ディレクトリを選ぶ。
+5. 対象の Misskey インスタンスを開き直す。
+
+追加 JS は Chrome 120+ の Manifest V3 `userScripts` API で登録します。Chrome 138 以降では拡張の Details 画面にある Allow User Scripts を有効にしてください。Chrome 137 以前では Developer mode が有効になっている必要があります。
 
 ## 使い方
 
 - ツールバーの popup で、現在開いているインスタンスの有効/無効とバッジ表示を切り替えられます。
-- Options でインスタンスを選び、対象ホスト、追加 CSS、追加 JS をインスタンスごとに編集できます。
+- Options でインスタンスを選び、対象ホスト、追加 CSS、複数の追加 JS プラグインをインスタンスごとに編集できます。
 - 対象ホストが空欄の場合、Misskey と判定できたページすべてに適用します。
 - 対象ホストには `misskey.example.com` や `*.example.net` を指定できます。
 
-## 追加 JS で使える API
+## 追加 JS プラグインで使える API
 
-追加 JS は content script の隔離 world で実行されます。
+追加 JS プラグインは Manifest V3 の User Scripts context で、Misskey ページ判定後に有効なものがまとめて登録・実行されます。保存後、対象ページを再読み込みすると反映されます。
 
 ```js
 api.markNotes();
 api.onRouteChange(() => api.markNotes());
 api.installStyle('[data-mkp-note-root] { outline: 1px solid red; }');
 api.rerunSoon(() => api.markNotes(), 300);
+```
+
+主な API:
+
+- `api.pluginName`: 現在のプラグイン名
+- `api.extensionVersion`: 拡張機能のバージョン
+- `api.url` / `api.path`: 現在の URL / path
+- `api.query(selector)` / `api.queryAll(selector)`: DOM 検索
+- `api.waitForElement(selector, { timeout })`: 要素が出るまで待つ
+- `api.observe(selector, callback, { existing, once })`: 追加された要素を監視
+- `api.on(selector, eventName, handler)`: 委譲イベントを登録
+- `api.installStyle(css, id)` / `api.removeStyle(id)`: CSS の追加・削除
+- `api.toast(message, { timeout })`: 簡易通知を表示
+- `api.misskeyApi(endpoint, body)`: 同一インスタンスの `/api/*` を呼び出す
+- `api.store.get(key)` / `api.store.set(key, value)` / `api.store.remove(key)`: プラグイン名ごとの localStorage 保存
+
+例:
+
+```js
+const button = await api.waitForElement('[data-mkp-note-root]');
+api.toast(`最初の note を見つけました: ${api.path}`);
+
+api.observe('article', (node) => {
+  node.dataset.myPluginSeen = 'true';
+});
+
+api.on('article', 'click', (_event, article) => {
+  console.log(api.pluginName, article);
+});
+
+const meta = await api.misskeyApi('meta', {});
+api.store.set('lastMetaName', meta.name);
 ```
 
 ## 初期パッチの内容

@@ -13,11 +13,12 @@ const DEFAULTS = {
     '}',
   ].join('\n'),
   customJs: [
-    '// Runs in the extension content-script world after Misskey is detected.',
-    '// Available arguments: window, document, api',
+    '// Runs as a Manifest V3 user script after Misskey is detected.',
+    '// Available globals: window, document, api',
     'api.markNotes();',
     'api.onRouteChange(() => api.markNotes());',
   ].join('\n'),
+  customPlugins: [],
 };
 
 const INSTANCE_SETTINGS_KEY = 'instanceSettings';
@@ -29,11 +30,16 @@ const fields = {
   allowedHosts: document.getElementById('allowedHosts'),
   customCss: document.getElementById('customCss'),
   customJs: document.getElementById('customJs'),
+  pluginList: document.getElementById('pluginList'),
+  pluginEnabled: document.getElementById('pluginEnabled'),
+  pluginName: document.getElementById('pluginName'),
 };
 
 const knownInstances = document.getElementById('knownInstances');
 const status = document.getElementById('status');
 let storageCache = { ...DEFAULTS, [INSTANCE_SETTINGS_KEY]: {} };
+let pluginDrafts = [];
+let selectedPluginIndex = 0;
 
 function normalizeHost(value) {
   return value.trim().toLowerCase();
@@ -55,7 +61,30 @@ function legacySettings(items) {
     allowedHosts: items.allowedHosts ?? DEFAULTS.allowedHosts,
     customCss: items.customCss ?? DEFAULTS.customCss,
     customJs: items.customJs ?? DEFAULTS.customJs,
+    customPlugins: items.customPlugins ?? DEFAULTS.customPlugins,
   };
+}
+
+function createPlugin(code = DEFAULTS.customJs) {
+  return {
+    id: `plugin-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+    name: '新しいプラグイン',
+    enabled: true,
+    code,
+  };
+}
+
+function normalizePlugins(items) {
+  const plugins = Array.isArray(items.customPlugins) ? items.customPlugins : [];
+  const normalized = plugins.map((plugin, index) => ({
+    id: String(plugin?.id || `plugin-${index + 1}`),
+    name: String(plugin?.name || `プラグイン ${index + 1}`),
+    enabled: plugin?.enabled !== false,
+    code: String(plugin?.code ?? ''),
+  }));
+
+  if (normalized.length > 0) return normalized;
+  return [createPlugin(items.customJs ?? DEFAULTS.customJs)];
 }
 
 function settingsForHost(host) {
@@ -78,22 +107,66 @@ function renderKnownInstances() {
 }
 
 function render(items) {
+  persistSelectedPlugin();
   fields.instanceHost.value = items.instanceHost ?? fields.instanceHost.value;
   fields.enabled.checked = items.enabled;
   fields.showBadge.checked = items.showBadge;
   fields.allowedHosts.value = items.allowedHosts;
   fields.customCss.value = items.customCss;
-  fields.customJs.value = items.customJs;
+  pluginDrafts = normalizePlugins(items);
+  selectedPluginIndex = 0;
+  renderPluginEditor();
 }
 
 function collect() {
+  persistSelectedPlugin();
   return {
     enabled: fields.enabled.checked,
     showBadge: fields.showBadge.checked,
     allowedHosts: fields.allowedHosts.value,
     customCss: fields.customCss.value,
-    customJs: fields.customJs.value,
+    customJs: pluginDrafts[0]?.code ?? '',
+    customPlugins: pluginDrafts.map((plugin) => ({ ...plugin })),
   };
+}
+
+function currentPlugin() {
+  return pluginDrafts[selectedPluginIndex] ?? null;
+}
+
+function persistSelectedPlugin() {
+  const plugin = currentPlugin();
+  if (!plugin || !fields.pluginName) return;
+
+  plugin.enabled = fields.pluginEnabled.checked;
+  plugin.name = fields.pluginName.value.trim() || `プラグイン ${selectedPluginIndex + 1}`;
+  plugin.code = fields.customJs.value;
+}
+
+function renderPluginEditor() {
+  fields.pluginList.textContent = '';
+  pluginDrafts.forEach((plugin, index) => {
+    const option = document.createElement('option');
+    option.value = String(index);
+    option.textContent = `${plugin.enabled ? '✓' : '×'} ${plugin.name || `プラグイン ${index + 1}`}`;
+    fields.pluginList.append(option);
+  });
+
+  if (selectedPluginIndex >= pluginDrafts.length) {
+    selectedPluginIndex = Math.max(0, pluginDrafts.length - 1);
+  }
+
+  fields.pluginList.value = String(selectedPluginIndex);
+  const plugin = currentPlugin();
+  const disabled = !plugin;
+  fields.pluginEnabled.disabled = disabled;
+  fields.pluginName.disabled = disabled;
+  fields.customJs.disabled = disabled;
+  document.getElementById('removePlugin').disabled = pluginDrafts.length <= 1;
+
+  fields.pluginEnabled.checked = plugin?.enabled ?? false;
+  fields.pluginName.value = plugin?.name ?? '';
+  fields.customJs.value = plugin?.code ?? '';
 }
 
 function currentHost() {
@@ -144,6 +217,12 @@ function detectActiveHost() {
   });
 }
 
+function syncUserScripts(callback) {
+  chrome.runtime.sendMessage({ type: 'mkp-sync-user-scripts' }, (response) => {
+    callback?.(response ?? { ok: false, reason: chrome.runtime.lastError?.message ?? 'No response' });
+  });
+}
+
 async function init() {
   chrome.storage.local.get({ ...DEFAULTS, [INSTANCE_SETTINGS_KEY]: {} }, async (items) => {
     storageCache = items;
@@ -165,17 +244,66 @@ async function init() {
 
 document.getElementById('save').addEventListener('click', () => {
   saveCurrentHost(collect(), (host) => {
-    status.textContent = `${host} の設定を保存しました。対象ページを再読み込みしてください。`;
+    syncUserScripts((response) => {
+      if (response?.ok) {
+        status.textContent = `${host} の設定を保存しました。${response.count} 件の追加 JS は対象ページの再読み込み後に反映されます。`;
+        return;
+      }
+
+      if (response?.errors?.length) {
+        status.textContent = `${host} の設定を保存しました。${response.count} 件を登録し、${response.errors.length} 件は JS エラーで登録できませんでした。`;
+        return;
+      }
+
+      status.textContent = `${host} の設定を保存しました。追加 JS の登録には Chrome の Allow User Scripts または Developer mode が必要です。`;
+    });
   });
 });
 
 document.getElementById('reset').addEventListener('click', () => {
   render(DEFAULTS);
   saveCurrentHost(DEFAULTS, (host) => {
-    status.textContent = `${host} の設定を初期値に戻しました。`;
+    syncUserScripts();
+    status.textContent = `${host} の設定を初期値に戻しました。追加 JS は対象ページの再読み込み後に反映されます。`;
   });
 });
 
 fields.instanceHost.addEventListener('change', renderCurrentHost);
+
+fields.pluginList.addEventListener('change', () => {
+  persistSelectedPlugin();
+  selectedPluginIndex = Number(fields.pluginList.value) || 0;
+  renderPluginEditor();
+});
+
+fields.pluginEnabled.addEventListener('change', () => {
+  persistSelectedPlugin();
+  renderPluginEditor();
+});
+
+fields.pluginName.addEventListener('input', () => {
+  persistSelectedPlugin();
+  const option = fields.pluginList.options[selectedPluginIndex];
+  if (option) {
+    const plugin = currentPlugin();
+    option.textContent = `${plugin.enabled ? '✓' : '×'} ${plugin.name || `プラグイン ${selectedPluginIndex + 1}`}`;
+  }
+});
+
+document.getElementById('addPlugin').addEventListener('click', () => {
+  persistSelectedPlugin();
+  pluginDrafts.push(createPlugin(''));
+  selectedPluginIndex = pluginDrafts.length - 1;
+  renderPluginEditor();
+  fields.pluginName.focus();
+});
+
+document.getElementById('removePlugin').addEventListener('click', () => {
+  if (pluginDrafts.length <= 1) return;
+
+  pluginDrafts.splice(selectedPluginIndex, 1);
+  selectedPluginIndex = Math.max(0, selectedPluginIndex - 1);
+  renderPluginEditor();
+});
 
 init();

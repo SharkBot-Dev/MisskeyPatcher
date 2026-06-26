@@ -5,11 +5,16 @@
   "description": "Applies CSS/JS patches to built Misskey pages without modifying the Misskey build output.",
   "permissions": [
     "storage",
-    "activeTab"
+    "activeTab",
+    "userScripts"
   ],
+  "minimum_chrome_version": "120",
   "host_permissions": [
     "<all_urls>"
   ],
+  "background": {
+    "service_worker": "background.js"
+  },
   "action": {
     "default_title": "Misskey Patcher",
     "default_popup": "popup.html"
