@@ -78,13 +78,27 @@
     }];
   }
 
-  function createPlugin(code = '') {
+  function createPlugin(code = '', name = '新しいプラグイン') {
     return {
       id: `plugin-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
-      name: '新しいプラグイン',
+      name,
       enabled: true,
       code,
     };
+  }
+
+  function pluginNameFromFileName(fileName) {
+    const baseName = String(fileName || '').split(/[\\/]/).pop() || '新しいプラグイン';
+    return baseName.replace(/\.js$/i, '').trim() || '新しいプラグイン';
+  }
+
+  function readTextFile(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.addEventListener('load', () => resolve(String(reader.result ?? '')));
+      reader.addEventListener('error', () => reject(reader.error ?? new Error('ファイルを読み込めませんでした。')));
+      reader.readAsText(file);
+    });
   }
 
   function settingsForHost(items, host = currentInstanceHost()) {
@@ -1109,8 +1123,10 @@
       '  <form class="mkp-inline-form mkp-plugin-form">',
       '    <div class="mkp-plugin-toolbar">',
       '      <button type="button" data-mkp-add-plugin="true">追加</button>',
+      '      <button type="button" data-mkp-upload-plugin="true">.jsを読み込み</button>',
       '      <button type="button" data-mkp-remove-plugin="true">削除</button>',
       '    </div>',
+      '    <input class="mkp-visually-hidden" name="pluginFile" type="file" accept=".js,text/javascript,application/javascript">',
       '    <label><span>プラグイン一覧</span><select name="pluginList" size="6"></select></label>',
       '    <label class="mkp-check"><input name="pluginEnabled" type="checkbox"> <span>このプラグインを有効にする</span></label>',
       '    <label><span>プラグイン名</span><input name="pluginName" type="text" placeholder="タイムライン調整"></label>',
@@ -1179,6 +1195,10 @@
         form.elements.namedItem('pluginName').focus();
       }
 
+      if (target?.closest('[data-mkp-upload-plugin="true"]')) {
+        form.elements.namedItem('pluginFile').click();
+      }
+
       if (target?.closest('[data-mkp-remove-plugin="true"]')) {
         if (plugins.length <= 1) return;
         plugins.splice(selectedIndex, 1);
@@ -1205,6 +1225,30 @@
     form.elements.namedItem('pluginName').addEventListener('input', () => {
       persistCurrentPlugin();
       renderPluginList();
+    });
+
+    form.elements.namedItem('pluginFile').addEventListener('change', async () => {
+      const input = form.elements.namedItem('pluginFile');
+      const file = input.files?.[0];
+      input.value = '';
+      if (!file) return;
+
+      if (!/\.js$/i.test(file.name)) {
+        status.textContent = '.js ファイルを選択してください。';
+        return;
+      }
+
+      try {
+        const code = await readTextFile(file);
+        persistCurrentPlugin();
+        plugins.push(createPlugin(code, pluginNameFromFileName(file.name)));
+        selectedIndex = plugins.length - 1;
+        renderPluginEditor();
+        status.textContent = `${file.name} をプラグインとして読み込みました。保存すると反映されます。`;
+        form.elements.namedItem('pluginName').focus();
+      } catch (error) {
+        status.textContent = `ファイルを読み込めませんでした: ${error.message}`;
+      }
     });
 
     form.addEventListener('submit', (event) => {

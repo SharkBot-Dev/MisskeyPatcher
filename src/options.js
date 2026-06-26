@@ -31,6 +31,7 @@ const fields = {
   pluginList: document.getElementById('pluginList'),
   pluginEnabled: document.getElementById('pluginEnabled'),
   pluginName: document.getElementById('pluginName'),
+  pluginFile: document.getElementById('pluginFile'),
 };
 
 const knownInstances = document.getElementById('knownInstances');
@@ -62,13 +63,27 @@ function legacySettings(items) {
   };
 }
 
-function createPlugin(code = DEFAULTS.customJs) {
+function createPlugin(code = DEFAULTS.customJs, name = '新しいプラグイン') {
   return {
     id: `plugin-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
-    name: '新しいプラグイン',
+    name,
     enabled: true,
     code,
   };
+}
+
+function pluginNameFromFileName(fileName) {
+  const baseName = String(fileName || '').split(/[\\/]/).pop() || '新しいプラグイン';
+  return baseName.replace(/\.js$/i, '').trim() || '新しいプラグイン';
+}
+
+function readTextFile(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.addEventListener('load', () => resolve(String(reader.result ?? '')));
+    reader.addEventListener('error', () => reject(reader.error ?? new Error('ファイルを読み込めませんでした。')));
+    reader.readAsText(file);
+  });
 }
 
 function normalizePlugins(items) {
@@ -291,6 +306,33 @@ document.getElementById('addPlugin').addEventListener('click', () => {
   selectedPluginIndex = pluginDrafts.length - 1;
   renderPluginEditor();
   fields.pluginName.focus();
+});
+
+document.getElementById('uploadPlugin').addEventListener('click', () => {
+  fields.pluginFile.click();
+});
+
+fields.pluginFile.addEventListener('change', async () => {
+  const file = fields.pluginFile.files?.[0];
+  fields.pluginFile.value = '';
+  if (!file) return;
+
+  if (!/\.js$/i.test(file.name)) {
+    status.textContent = '.js ファイルを選択してください。';
+    return;
+  }
+
+  try {
+    const code = await readTextFile(file);
+    persistSelectedPlugin();
+    pluginDrafts.push(createPlugin(code, pluginNameFromFileName(file.name)));
+    selectedPluginIndex = pluginDrafts.length - 1;
+    renderPluginEditor();
+    status.textContent = `${file.name} をプラグインとして読み込みました。保存すると反映されます。`;
+    fields.pluginName.focus();
+  } catch (error) {
+    status.textContent = `ファイルを読み込めませんでした: ${error.message}`;
+  }
 });
 
 document.getElementById('removePlugin').addEventListener('click', () => {
