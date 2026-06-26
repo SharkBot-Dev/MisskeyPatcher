@@ -14,6 +14,7 @@ const DEFAULTS = {
 
 const INSTANCE_SETTINGS_KEY = 'instanceSettings';
 const SCRIPT_ID_PREFIX = 'mkp-';
+let userScriptsSyncQueue = Promise.resolve();
 
 function legacySettings(items) {
   return {
@@ -274,6 +275,122 @@ function buildUserScriptCode(userCode, pluginName, extensionVersion) {
     setTimeout(() => node.remove(), options.timeout ?? 3000);
     return node;
   }
+
+  const settingsItemCallbacks = new Map();
+  const sidebarMoreItemCallbacks = new Map();
+
+  function serializeBridgePayload(payload) {
+    try {
+      return JSON.stringify(payload);
+    } catch {
+      return JSON.stringify({ type: 'bridge-error', reason: 'Failed to serialize bridge payload' });
+    }
+  }
+
+  function pluginItemId(value) {
+    const raw = String(value || '').trim() || Math.random().toString(36).slice(2, 10);
+    return pluginName + ':' + raw.replace(/\\s+/g, '-');
+  }
+
+  function emitSettingsCommand(command) {
+    window.dispatchEvent(new CustomEvent('misskey-patcher:settings-command', {
+      detail: serializeBridgePayload(command),
+    }));
+  }
+
+  function emitSidebarMoreCommand(command) {
+    window.dispatchEvent(new CustomEvent('misskey-patcher:sidebar-more-command', {
+      detail: serializeBridgePayload(command),
+    }));
+  }
+
+  function registerSettingsItem(definition, callback) {
+    const itemDefinition = typeof definition === 'string' ? { name: definition } : { ...(definition ?? {}) };
+    const id = pluginItemId(itemDefinition.id ?? itemDefinition.name ?? itemDefinition.label);
+    const name = String(itemDefinition.name ?? itemDefinition.label ?? '').trim();
+    if (!name) {
+      throw new Error('Settings item name is required');
+    }
+
+    const item = {
+      id,
+      name,
+      icon: String(itemDefinition.icon ?? 'ti ti-plug ti-fw'),
+      order: Number.isFinite(Number(itemDefinition.order)) ? Number(itemDefinition.order) : 100,
+      pluginName,
+    };
+
+    if (typeof callback === 'function') {
+      settingsItemCallbacks.set(id, callback);
+    }
+
+    emitSettingsCommand({ type: 'register', item });
+    return () => {
+      settingsItemCallbacks.delete(id);
+      emitSettingsCommand({ type: 'unregister', id });
+    };
+  }
+
+  function registerSidebarMoreItem(definition, callback) {
+    const itemDefinition = typeof definition === 'string' ? { name: definition } : { ...(definition ?? {}) };
+    const id = pluginItemId(itemDefinition.id ?? itemDefinition.name ?? itemDefinition.label);
+    const name = String(itemDefinition.name ?? itemDefinition.label ?? '').trim();
+    if (!name) {
+      throw new Error('Sidebar more item name is required');
+    }
+
+    const item = {
+      id,
+      name,
+      icon: String(itemDefinition.icon ?? 'ti ti-plug ti-fw'),
+      order: Number.isFinite(Number(itemDefinition.order)) ? Number(itemDefinition.order) : 100,
+      pluginName,
+    };
+
+    if (typeof callback === 'function') {
+      sidebarMoreItemCallbacks.set(id, callback);
+    }
+
+    emitSidebarMoreCommand({ type: 'register', item });
+    return () => {
+      sidebarMoreItemCallbacks.delete(id);
+      emitSidebarMoreCommand({ type: 'unregister', id });
+    };
+  }
+
+  window.addEventListener('misskey-patcher:settings-event', (event) => {
+    const message = parseBridgeDetail(event.detail);
+    if (!message || message.type !== 'click') return;
+
+    const callback = settingsItemCallbacks.get(String(message.id ?? ''));
+    if (!callback) return;
+
+    try {
+      callback(Object.freeze({
+        id: message.id,
+        pluginName: message.pluginName,
+      }));
+    } catch (error) {
+      console.error('[Misskey Patcher] settings item callback failed:', pluginName, error);
+    }
+  });
+
+  window.addEventListener('misskey-patcher:sidebar-more-event', (event) => {
+    const message = parseBridgeDetail(event.detail);
+    if (!message || message.type !== 'click') return;
+
+    const callback = sidebarMoreItemCallbacks.get(String(message.id ?? ''));
+    if (!callback) return;
+
+    try {
+      callback(Object.freeze({
+        id: message.id,
+        pluginName: message.pluginName,
+      }));
+    } catch (error) {
+      console.error('[Misskey Patcher] sidebar more item callback failed:', pluginName, error);
+    }
+  });
 
   async function misskeyApi(endpoint, body = {}, options = {}) {
     const path = String(endpoint).startsWith('/api/') ? String(endpoint) : '/api/' + String(endpoint).replace(/^\\/+/, '');
@@ -734,6 +851,10 @@ function buildUserScriptCode(userCode, pluginName, extensionVersion) {
       observe,
       on,
       toast,
+      registerSettingsItem,
+      addSettingsItem: registerSettingsItem,
+      registerSidebarMoreItem,
+      addSidebarMoreItem: registerSidebarMoreItem,
       misskeyApi,
       misskeyWebSocketUrl,
       openWebSocket,
@@ -786,18 +907,26 @@ async function userScriptsAvailable() {
   }
 }
 
+function isNonexistentUserScriptError(error) {
+  return /\bNonexistent script ID\b/.test(String(error?.message ?? error));
+}
+
 async function unregisterManagedScripts() {
   const scripts = await chrome.userScripts.getScripts();
   const ids = scripts
     .map((script) => script.id)
-    .filter((id) => id.startsWith(SCRIPT_ID_PREFIX));
+    .filter((id) => id?.startsWith(SCRIPT_ID_PREFIX));
 
-  if (ids.length > 0) {
-    await chrome.userScripts.unregister({ ids });
+  for (const id of ids) {
+    try {
+      await chrome.userScripts.unregister({ ids: [id] });
+    } catch (error) {
+      if (!isNonexistentUserScriptError(error)) throw error;
+    }
   }
 }
 
-async function syncUserScripts() {
+async function runUserScriptsSync() {
   if (!(await userScriptsAvailable())) {
     return { ok: false, reason: 'userScripts API is not available. Enable Allow User Scripts or Developer mode for this extension.' };
   }
@@ -836,6 +965,12 @@ async function syncUserScripts() {
   }
 
   return { ok: errors.length === 0, count: registrations.length - errors.length, errors };
+}
+
+function syncUserScripts() {
+  const sync = userScriptsSyncQueue.catch(() => {}).then(runUserScriptsSync);
+  userScriptsSyncQueue = sync;
+  return sync;
 }
 
 chrome.runtime.onInstalled.addListener(() => {

@@ -38,6 +38,31 @@
   color: var(--MI_THEME-accent, currentColor);
 }
 
+.mkp-sidebar-more-menu-group {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--MI_THEME-divider, rgb(128 128 128 / 20%));
+}
+
+.mkp-sidebar-more-menu-group > .mkp-sidebar-more-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 38px;
+  border: 0;
+  padding: 0 14px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.mkp-sidebar-more-menu-group > .mkp-sidebar-more-menu-item:hover {
+  background: var(--MI_THEME-buttonBg, rgb(128 128 128 / 18%));
+}
+
 #mkp-inline-settings {
   position: fixed;
   inset: 0;

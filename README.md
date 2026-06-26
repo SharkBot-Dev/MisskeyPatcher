@@ -45,6 +45,8 @@ api.rerunSoon(() => api.markNotes(), 300);
 - `api.on(selector, eventName, handler)`: 委譲イベントを登録
 - `api.installStyle(css, id)` / `api.removeStyle(id)`: CSS の追加・削除
 - `api.toast(message, { timeout })`: 簡易通知を表示
+- `api.registerSettingsItem(definition, callback)` / `api.addSettingsItem(...)`: Misskey の設定メニューに項目を追加
+- `api.registerSidebarMoreItem(definition, callback)` / `api.addSidebarMoreItem(...)`: サイドバーの「もっと！」メニューに項目を追加
 - `api.misskeyApi(endpoint, body)`: 同一インスタンスの `/api/*` を呼び出す
 - `api.openWebSocket(path, options)`: 同一インスタンスへ WebSocket 接続
 - `api.openMisskeyStream(options)` / `api.stream(options)`: Misskey Streaming API 用 wrapper
@@ -69,6 +71,41 @@ api.on('article', 'click', (_event, article) => {
 const meta = await api.misskeyApi('meta', {});
 api.store.set('lastMetaName', meta.name);
 ```
+
+設定メニューへ plugin 独自の項目を追加する例:
+
+```js
+const unregister = api.registerSettingsItem({
+  id: 'my-settings',
+  name: '自分の設定',
+  icon: 'ti ti-adjustments ti-fw',
+  order: 120,
+}, () => {
+  api.toast(`${api.pluginName} の設定項目が押されました`);
+});
+
+api.onRouteChange(() => {
+  if (!api.path.startsWith('/settings')) return;
+  // 必要なら route 変更時に状態を更新できます。
+});
+```
+
+`id` は同じ plugin 内で一意にしてください。同じ `id` で再登録すると表示名や並び順を更新できます。不要になった項目は返り値の `unregister()` で削除できます。`icon` は Misskey が読み込んでいる Tabler Icons の class 名を指定できます。
+
+サイドバーの「もっと！」メニューへ項目を追加する例:
+
+```js
+api.registerSidebarMoreItem({
+  id: 'quick-action',
+  name: 'クイック操作',
+  icon: 'ti ti-bolt ti-fw',
+  order: 120,
+}, () => {
+  api.toast('クイック操作を実行しました');
+});
+```
+
+追加項目は「もっと！」メニューを開いたタイミングで差し込まれます。`id`、`name`、`icon`、`order` の指定方法は `registerSettingsItem()` と同じです。
 
 Misskey Streaming API の例:
 

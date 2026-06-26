@@ -30,6 +30,9 @@
     active: false,
     observer: null,
     routeCallbacks: new Set(),
+    pluginSettingsItems: new Map(),
+    pluginSidebarMoreItems: new Map(),
+    lastSidebarMoreClickAt: 0,
     lastUrl: location.href,
   };
 
@@ -195,54 +198,411 @@
     style.textContent = cssText;
   }
 
+  function parseBridgeDetail(detail) {
+    if (typeof detail !== 'string') return null;
+    try {
+      return JSON.parse(detail);
+    } catch {
+      return null;
+    }
+  }
+
+  function serializeBridgePayload(payload) {
+    try {
+      return JSON.stringify(payload);
+    } catch {
+      return JSON.stringify({ type: 'bridge-error', reason: 'Failed to serialize payload' });
+    }
+  }
+
+  function sanitizeSettingsItem(rawItem) {
+    if (!rawItem || typeof rawItem !== 'object') return null;
+
+    const id = String(rawItem.id ?? '').trim();
+    const name = String(rawItem.name ?? rawItem.label ?? '').trim();
+    if (!id || !name) return null;
+
+    const icon = String(rawItem.icon ?? 'ti ti-plug ti-fw').trim();
+    const order = Number.isFinite(Number(rawItem.order)) ? Number(rawItem.order) : 100;
+    return {
+      id,
+      name,
+      icon: icon || 'ti ti-plug ti-fw',
+      order,
+      pluginName: String(rawItem.pluginName ?? ''),
+    };
+  }
+
+  function sanitizeSidebarMoreItem(rawItem) {
+    const item = sanitizeSettingsItem(rawItem);
+    if (!item) return null;
+    return {
+      ...item,
+      icon: item.icon || 'ti ti-plug ti-fw',
+    };
+  }
+
+  function emitPluginSettingsEvent(payload) {
+    window.dispatchEvent(new CustomEvent('misskey-patcher:settings-event', {
+      detail: serializeBridgePayload(payload),
+    }));
+  }
+
+  function emitPluginSidebarMoreEvent(payload) {
+    window.dispatchEvent(new CustomEvent('misskey-patcher:sidebar-more-event', {
+      detail: serializeBridgePayload(payload),
+    }));
+  }
+
+  function handlePluginSettingsCommand(event) {
+    const command = parseBridgeDetail(event.detail);
+    if (!command || typeof command !== 'object') return;
+
+    if (command.type === 'register') {
+      const item = sanitizeSettingsItem(command.item);
+      if (!item) return;
+      state.pluginSettingsItems.set(item.id, item);
+      refreshSettingsMenuItems();
+      return;
+    }
+
+    if (command.type === 'unregister') {
+      state.pluginSettingsItems.delete(String(command.id ?? ''));
+      refreshSettingsMenuItems();
+    }
+  }
+
+  window.addEventListener('misskey-patcher:settings-command', handlePluginSettingsCommand);
+
+  function handlePluginSidebarMoreCommand(event) {
+    const command = parseBridgeDetail(event.detail);
+    if (!command || typeof command !== 'object') return;
+
+    if (command.type === 'register') {
+      const item = sanitizeSidebarMoreItem(command.item);
+      if (!item) return;
+      state.pluginSidebarMoreItems.set(item.id, item);
+      injectSidebarMoreItems();
+      return;
+    }
+
+    if (command.type === 'unregister') {
+      state.pluginSidebarMoreItems.delete(String(command.id ?? ''));
+      refreshSidebarMoreItems();
+    }
+  }
+
+  window.addEventListener('misskey-patcher:sidebar-more-command', handlePluginSidebarMoreCommand);
+
   const buttons = [
     {
-      "name": "基本設定",
-      "function": (event) => {
+      name: '基本設定',
+      icon: 'ti ti-settings-2 ti-fw',
+      onClick: (event) => {
         event.preventDefault();
         event.stopPropagation();
         openInlineSettings();
-      }
+      },
     },
     {
-      "name": "プラグイン設定",
-      "function": (event) => {
+      name: 'プラグイン設定',
+      icon: 'ti ti-settings-2 ti-fw',
+      onClick: (event) => {
         event.preventDefault();
         event.stopPropagation();
         openPluginSettings();
-      }
-    }
-  ]
+      },
+    },
+  ];
+
+  function settingsMenuButtons() {
+    const pluginItems = [...state.pluginSettingsItems.values()]
+      .sort((a, b) => a.order - b.order || a.name.localeCompare(b.name))
+      .map((item) => ({
+        name: item.name,
+        icon: item.icon,
+        onClick: (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          emitPluginSettingsEvent({
+            type: 'click',
+            id: item.id,
+            pluginName: item.pluginName,
+          });
+        },
+      }));
+
+    return [...buttons, ...pluginItems];
+  }
   
   function createSettingsRow(dataVName) {
     let buttons_list = [];
-    buttons.forEach((value) => {
+    settingsMenuButtons().forEach((value) => {
       const button = document.createElement('button');
       button.type = 'button';
       button.className = '_button item mkp-settings-menu-item';
       button.dataset.misskeyPatcherSettings = 'true';
-      button.innerHTML = [
-        `<span class="icon"><i class="ti ti-settings-2 ti-fw"></i></span>`,
-        `<span class="text">${value.name}</span>`,
-      ].join('');
+
+      const icon = document.createElement('span');
+      icon.className = 'icon';
+      const iconGlyph = document.createElement('i');
+      iconGlyph.className = value.icon;
+      icon.append(iconGlyph);
+
+      const text = document.createElement('span');
+      text.className = 'text';
+      text.textContent = value.name;
+
+      button.append(icon, text);
       if (dataVName) {
         button.setAttribute(dataVName, "")
       }
-      button.addEventListener('click', value.function);
+      button.addEventListener('click', value.onClick);
       buttons_list.push(button)
     })
     return buttons_list;
   }
 
+  function refreshSettingsMenuItems() {
+    document.querySelector('[data-misskey-patcher-settings-group="true"]')?.remove();
+    injectSettingsMenuItem();
+  }
+
+  function sortedSidebarMoreItems() {
+    return [...state.pluginSidebarMoreItems.values()]
+      .sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
+  }
+
+  function createMenuButton(item, eventName, dataVName) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = '_button item mkp-sidebar-more-menu-item';
+    button.dataset.misskeyPatcherSidebarMore = 'true';
+
+    const icon = document.createElement('span');
+    icon.className = 'icon';
+    const iconGlyph = document.createElement('i');
+    iconGlyph.className = item.icon;
+    icon.append(iconGlyph);
+
+    const text = document.createElement('span');
+    text.className = 'text';
+    text.textContent = item.name;
+
+    button.append(icon, text);
+    if (dataVName) button.setAttribute(dataVName, '');
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      eventName({
+        type: 'click',
+        id: item.id,
+        pluginName: item.pluginName,
+      });
+    });
+    return button;
+  }
+
+  function removeSidebarMoreInjectedItems() {
+    document.querySelectorAll([
+      '[data-misskey-patcher-sidebar-more-group="true"]',
+      '[data-misskey-patcher-sidebar-more="true"]',
+    ].join(',')).forEach((node) => node.remove());
+  }
+
+  function refreshSidebarMoreItems() {
+    removeSidebarMoreInjectedItems();
+    injectSidebarMoreItems();
+  }
+
+  function textContentForTrigger(element) {
+    return [
+      element.textContent,
+      element.getAttribute('aria-label'),
+      element.getAttribute('title'),
+    ].filter(Boolean).join(' ').trim();
+  }
+
+  function isSidebarMoreTrigger(element) {
+    const trigger = element.closest?.('button, a, [role="button"], [role="menuitem"]');
+    if (!trigger) return false;
+
+    const text = textContentForTrigger(trigger).toLowerCase();
+    return text.includes('もっと') || text.includes('more');
+  }
+
+  document.addEventListener('click', (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (!target || !isSidebarMoreTrigger(target)) return;
+
+    state.lastSidebarMoreClickAt = Date.now();
+    removeSidebarMoreInjectedItems();
+    setTimeout(injectSidebarMoreItems, 80);
+    setTimeout(injectSidebarMoreItems, 300);
+  }, true);
+
+  function isVisibleElement(element) {
+    const rect = element.getBoundingClientRect();
+    const style = getComputedStyle(element);
+    return rect.width > 80
+      && rect.height > 32
+      && rect.width < Math.min(520, window.innerWidth)
+      && rect.height < Math.min(720, window.innerHeight)
+      && style.display !== 'none'
+      && style.visibility !== 'hidden'
+      && Number(style.opacity || 1) > 0;
+  }
+
+  function dataVNameFrom(element) {
+    const source = element.querySelector('button, a, [role="menuitem"], .item') ?? element.firstElementChild;
+    for (const attr of source?.attributes ?? []) {
+      if (attr.name.startsWith('data-v-')) return attr.name;
+    }
+    return '';
+  }
+
+  function sidebarMoreMenuScore(element) {
+    if (!isVisibleElement(element)) return -1;
+    if (element.closest('#mkp-inline-settings')) return -1;
+    if (element.querySelector('[data-misskey-patcher-sidebar-more-group="true"]')) return -1;
+    if (element.querySelector('[data-misskey-patcher-sidebar-more="true"]')) return -1;
+    if (!looksLikeSidebarMoreMenu(element)) return -1;
+
+    const clickables = element.querySelectorAll('button, a, [role="menuitem"], .item');
+    if (clickables.length < 2 || clickables.length > 80) return -1;
+
+    const rect = element.getBoundingClientRect();
+    const style = getComputedStyle(element);
+    let score = 0;
+    if (element.matches('[role="menu"], [role="listbox"], [popover]')) score += 8;
+    if (/menu|popup|popover|dropdown|context/i.test(element.className)) score += 4;
+    if (style.position === 'fixed' || style.position === 'absolute') score += 3;
+    if (rect.left < 360 || rect.right > window.innerWidth - 360) score += 2;
+    score += Math.max(0, 5 - Math.floor((rect.width * rect.height) / 30000));
+    return score;
+  }
+
+  function looksLikeSidebarMoreMenu(element) {
+    const text = element.textContent ?? '';
+    const labels = [
+      '照会',
+      '二次元コード',
+      'リスト',
+      'アンテナ',
+      'お気に入り',
+      'ページ',
+      'Play',
+      'ギャラリー',
+      '実績',
+      'Misskey Games',
+      '情報',
+      'ツール',
+      'リロード',
+      'プロフィール',
+      'キャッシュをクリア',
+      'Lookup',
+      'QR code',
+      'Lists',
+      'Antennas',
+      'Favorites',
+      'Pages',
+      'Gallery',
+      'Achievements',
+      'About',
+      'Tools',
+      'Reload',
+      'Profile',
+      'Clear cache',
+    ];
+    const matches = labels.filter((label) => text.includes(label)).length;
+    return matches >= 4;
+  }
+
+  function findSidebarMoreMenu() {
+    const candidates = [
+      ...document.querySelectorAll('[role="menu"], [role="listbox"], [popover], [class*="menu" i], [class*="popup" i], [class*="popover" i], [class*="dropdown" i], body div, body section, body nav, body aside, body ul'),
+    ];
+
+    return candidates
+      .map((element) => ({ element, score: sidebarMoreMenuScore(element) }))
+      .filter((candidate) => candidate.score >= 0)
+      .sort((a, b) => b.score - a.score)[0]?.element ?? null;
+  }
+
+  function directMenuItemCount(element) {
+    return [...element.children].filter((child) => {
+      if (!(child instanceof Element)) return false;
+      return child.matches('button, a, [role="menuitem"], .item')
+        || child.querySelector(':scope > button, :scope > a, :scope > [role="menuitem"], :scope > .item');
+    }).length;
+  }
+
+  function gridInsertionScore(element) {
+    if (!isVisibleElement(element)) return -1;
+    if (element.querySelector('[data-misskey-patcher-sidebar-more="true"]')) return -1;
+
+    const directItems = directMenuItemCount(element);
+    if (directItems < 8) return -1;
+
+    const style = getComputedStyle(element);
+    let score = directItems;
+    if (style.display.includes('grid')) score += 100;
+    if (style.gridTemplateColumns && style.gridTemplateColumns !== 'none') score += 20;
+    if (style.display.includes('flex') && style.flexWrap !== 'nowrap') score += 8;
+    return score;
+  }
+
+  function findSidebarMoreGridTarget(menu) {
+    const candidates = [
+      menu,
+      ...menu.querySelectorAll('div, section, nav, ul'),
+    ];
+
+    return candidates
+      .map((element) => ({ element, score: gridInsertionScore(element) }))
+      .filter((candidate) => candidate.score >= 0)
+      .sort((a, b) => b.score - a.score)[0]?.element ?? null;
+  }
+
+  function injectSidebarMoreItems() {
+    if (state.pluginSidebarMoreItems.size === 0) return;
+    if (Date.now() - state.lastSidebarMoreClickAt > 3000) return;
+    if (document.querySelector('[data-misskey-patcher-sidebar-more="true"], [data-misskey-patcher-sidebar-more-group="true"]')) return;
+
+    const menu = findSidebarMoreMenu();
+    if (!menu) return;
+
+    const gridTarget = findSidebarMoreGridTarget(menu);
+    if (gridTarget) {
+      const dataVName = dataVNameFrom(gridTarget);
+      for (const item of sortedSidebarMoreItems()) {
+        gridTarget.append(createMenuButton(item, emitPluginSidebarMoreEvent, dataVName));
+      }
+      return;
+    }
+
+    const dataVName = dataVNameFrom(menu);
+    const group = document.createElement('div');
+    group.className = 'mkp-sidebar-more-menu-group';
+    group.dataset.misskeyPatcherSidebarMoreGroup = 'true';
+    if (dataVName) group.setAttribute(dataVName, '');
+
+    for (const item of sortedSidebarMoreItems()) {
+      group.append(createMenuButton(item, emitPluginSidebarMoreEvent, dataVName));
+    }
+
+    menu.append(group);
+  }
+
   function injectSettingsMenuItem() {
     if (!location.pathname.startsWith('/settings')) return;
-    if (document.querySelector('[data-misskey-patcher-settings="true"]')) return;
+    if (document.querySelector('[data-misskey-patcher-settings-group="true"]')) return;
 
     const superMenu = document.querySelector('.rrevdjwu');
     if (!superMenu) return;
 
     let dataVName;
-    for (const attr of superMenu.firstElementChild.attributes) {
+    for (const attr of superMenu.firstElementChild?.attributes ?? []) {
       if (attr.name.startsWith("data-v-")) {
         dataVName = attr.name
       }
@@ -250,6 +610,7 @@
 
     const group = document.createElement('div');
     group.className = 'group';
+    group.dataset.misskeyPatcherSettingsGroup = 'true';
     if (dataVName) {
       group.setAttribute(dataVName, "")
     }
@@ -566,6 +927,7 @@
     state.observer?.disconnect();
     state.observer = new MutationObserver(() => {
       injectSettingsMenuItem();
+      injectSidebarMoreItems();
     });
 
     state.observer.observe(document.documentElement, {
@@ -587,8 +949,10 @@
     installRouteHooks();
     observeApp();
     injectSettingsMenuItem();
+    injectSidebarMoreItems();
     onRouteChange(() => {
       injectSettingsMenuItem();
+      injectSidebarMoreItems();
     });
   }
 
