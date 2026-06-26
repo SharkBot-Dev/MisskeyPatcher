@@ -298,6 +298,7 @@ function buildUserScriptCode(userCode, pluginName, extensionVersion) {
 
   const settingsItemCallbacks = new Map();
   const sidebarMoreItemCallbacks = new Map();
+  const slashCommandCallbacks = new Map();
 
   function serializeBridgePayload(payload) {
     try {
@@ -320,6 +321,12 @@ function buildUserScriptCode(userCode, pluginName, extensionVersion) {
 
   function emitSidebarMoreCommand(command) {
     window.dispatchEvent(new CustomEvent('misskey-patcher:sidebar-more-command', {
+      detail: serializeBridgePayload(command),
+    }));
+  }
+
+  function emitSlashCommand(command) {
+    window.dispatchEvent(new CustomEvent('misskey-patcher:slash-command', {
       detail: serializeBridgePayload(command),
     }));
   }
@@ -378,6 +385,39 @@ function buildUserScriptCode(userCode, pluginName, extensionVersion) {
     };
   }
 
+  function registerSlashCommand(definition, callback) {
+    const itemDefinition = typeof definition === 'string' ? { name: definition, command: definition } : { ...(definition ?? {}) };
+    const rawCommand = String(itemDefinition.command ?? itemDefinition.slash ?? itemDefinition.name ?? itemDefinition.label ?? '')
+      .replace(/^\\/+/, '')
+      .trim();
+    const name = String(itemDefinition.name ?? itemDefinition.label ?? rawCommand).trim();
+    if (!rawCommand || !name) {
+      throw new Error('Slash command name and command are required');
+    }
+
+    const id = pluginItemId(itemDefinition.id ?? rawCommand);
+    const item = {
+      id,
+      name,
+      command: rawCommand,
+      description: String(itemDefinition.description ?? ''),
+      icon: String(itemDefinition.icon ?? 'ti ti-slash ti-fw'),
+      insert: typeof itemDefinition.insert === 'string' ? itemDefinition.insert : null,
+      order: Number.isFinite(Number(itemDefinition.order)) ? Number(itemDefinition.order) : 100,
+      pluginName,
+    };
+
+    if (typeof callback === 'function') {
+      slashCommandCallbacks.set(id, callback);
+    }
+
+    emitSlashCommand({ type: 'register', item });
+    return () => {
+      slashCommandCallbacks.delete(id);
+      emitSlashCommand({ type: 'unregister', id });
+    };
+  }
+
   window.addEventListener('misskey-patcher:settings-event', (event) => {
     const message = parseBridgeDetail(event.detail);
     if (!message || message.type !== 'click') return;
@@ -409,6 +449,27 @@ function buildUserScriptCode(userCode, pluginName, extensionVersion) {
       }));
     } catch (error) {
       console.error('[Misskey Patcher] sidebar more item callback failed:', pluginName, error);
+    }
+  });
+
+  window.addEventListener('misskey-patcher:slash-command-event', (event) => {
+    const message = parseBridgeDetail(event.detail);
+    if (!message || message.type !== 'execute') return;
+
+    const callback = slashCommandCallbacks.get(String(message.id ?? ''));
+    if (!callback) return;
+
+    try {
+      callback(Object.freeze({
+        id: message.id,
+        command: message.command,
+        name: message.name,
+        query: message.query,
+        insertedText: message.insertedText,
+        pluginName: message.pluginName,
+      }));
+    } catch (error) {
+      console.error('[Misskey Patcher] slash command callback failed:', pluginName, error);
     }
   });
 
@@ -875,6 +936,8 @@ function buildUserScriptCode(userCode, pluginName, extensionVersion) {
       addSettingsItem: registerSettingsItem,
       registerSidebarMoreItem,
       addSidebarMoreItem: registerSidebarMoreItem,
+      registerSlashCommand,
+      addSlashCommand: registerSlashCommand,
       misskeyApi,
       misskeyWebSocketUrl,
       openWebSocket,

@@ -63,6 +63,69 @@
   background: var(--MI_THEME-buttonBg, rgb(128 128 128 / 18%));
 }
 
+.mkp-slash-command-menu {
+  position: fixed;
+  z-index: 2147483647;
+  display: grid;
+  max-height: min(360px, calc(100dvh - 24px));
+  overflow: auto;
+  border: 1px solid var(--MI_THEME-divider, rgb(128 128 128 / 22%));
+  border-radius: 8px;
+  background: var(--MI_THEME-panel, #fff);
+  color: var(--MI_THEME-fg, #1b2219);
+  box-shadow: 0 14px 42px rgb(0 0 0 / 28%);
+  padding: 6px;
+  font: 13px/1.45 system-ui, sans-serif;
+}
+
+.mkp-slash-command-item {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 46px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  padding: 6px 8px;
+  text-align: left;
+}
+
+.mkp-slash-command-item[aria-selected="true"],
+.mkp-slash-command-item:hover {
+  background: var(--MI_THEME-buttonBg, rgb(128 128 128 / 18%));
+}
+
+.mkp-slash-command-item > i {
+  display: grid;
+  place-items: center;
+  color: var(--MI_THEME-accent, currentColor);
+  font-size: 18px;
+}
+
+.mkp-slash-command-body {
+  display: grid;
+  min-width: 0;
+}
+
+.mkp-slash-command-title {
+  overflow: hidden;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mkp-slash-command-description {
+  overflow: hidden;
+  color: var(--MI_THEME-fgTransparentWeak, rgb(0 0 0 / 58%));
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 #mkp-inline-settings {
   position: fixed;
   inset: 0;

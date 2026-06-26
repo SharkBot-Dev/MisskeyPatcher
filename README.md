@@ -47,6 +47,7 @@ api.rerunSoon(() => api.markNotes(), 300);
 - `api.toast(message, { timeout })`: 簡易通知を表示
 - `api.registerSettingsItem(definition, callback)` / `api.addSettingsItem(...)`: Misskey の設定メニューに項目を追加
 - `api.registerSidebarMoreItem(definition, callback)` / `api.addSidebarMoreItem(...)`: サイドバーの「もっと！」メニューに項目を追加
+- `api.registerSlashCommand(definition, callback)` / `api.addSlashCommand(...)`: ノート作成画面で `/` から使える候補を追加
 - `api.misskeyApi(endpoint, body)`: 同一インスタンスの `/api/*` を呼び出す
 - `api.openWebSocket(path, options)`: 同一インスタンスへ WebSocket 接続
 - `api.openMisskeyStream(options)` / `api.stream(options)`: Misskey Streaming API 用 wrapper
@@ -106,6 +107,24 @@ api.registerSidebarMoreItem({
 ```
 
 追加項目は「もっと！」メニューを開いたタイミングで差し込まれます。`id`、`name`、`icon`、`order` の指定方法は `registerSettingsItem()` と同じです。
+
+ノート作成画面へ slash command を追加する例:
+
+```js
+api.registerSlashCommand({
+  id: 'hello-template',
+  command: 'hello',
+  name: 'あいさつテンプレート',
+  description: '短いあいさつを挿入します',
+  icon: 'ti ti-message-circle ti-fw',
+  insert: 'こんにちは！',
+  order: 10,
+}, () => {
+  api.toast('/hello を挿入しました');
+});
+```
+
+投稿欄で `/` を入力すると候補が表示されます。`/he` のように続けて入力すると候補が絞り込まれ、Enter、Tab、クリックで選択できます。`insert` を指定した場合は入力中の `/command` がその文字列に置き換わります。`callback` は選択後に呼ばれます。
 
 Misskey Streaming API の例:
 
