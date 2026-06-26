@@ -322,6 +322,13 @@ function buildUserScriptCode(userCode, pluginName, extensionVersion) {
     if (options.token && !params.i) params.i = options.token;
 
     const socket = new WebSocket(misskeyWebSocketUrl(path, params), options.protocols);
+    const pendingSends = [];
+
+    socket.addEventListener('open', () => {
+      while (pendingSends.length > 0 && socket.readyState === WebSocket.OPEN) {
+        socket.send(pendingSends.shift());
+      }
+    });
 
     function onOpen(callback) {
       socket.addEventListener('open', callback);
@@ -345,7 +352,17 @@ function buildUserScriptCode(userCode, pluginName, extensionVersion) {
     }
 
     function sendRaw(data) {
-      socket.send(typeof data === 'string' ? data : JSON.stringify(data));
+      const payload = typeof data === 'string' ? data : JSON.stringify(data);
+      if (socket.readyState === WebSocket.CONNECTING) {
+        pendingSends.push(payload);
+        return;
+      }
+
+      if (socket.readyState !== WebSocket.OPEN) {
+        throw new Error('WebSocket is not open');
+      }
+
+      socket.send(payload);
     }
 
     function send(type, body = {}) {
@@ -482,12 +499,13 @@ function buildUserScriptCode(userCode, pluginName, extensionVersion) {
       return;
     }
 
-    if (message.socket) {
-      updateBridgeSocket(message.socket);
-    }
-
     if (message.type === 'socket-close' && message.socket?.id) {
       pageSocketState.sockets.delete(message.socket.id);
+      return;
+    }
+
+    if (message.socket) {
+      updateBridgeSocket(message.socket);
     }
   });
 

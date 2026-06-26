@@ -6,6 +6,7 @@
 
   const NativeWebSocket = window.WebSocket;
   const sockets = new Map();
+  const pendingSends = new Map();
   let nextSocketId = 1;
 
   function serialize(value) {
@@ -53,6 +54,7 @@
 
     const id = `ws-${nextSocketId++}`;
     sockets.set(id, socket);
+    pendingSends.set(id, []);
 
     try {
       Object.defineProperty(socket, '__misskeyPatcherWsId', {
@@ -65,6 +67,15 @@
     emit({ type: 'socket-created', socket: snapshot(socket, id) });
 
     socket.addEventListener('open', () => {
+      const pending = pendingSends.get(id) ?? [];
+      pendingSends.set(id, []);
+      for (const data of pending) {
+        try {
+          socket.send(data);
+        } catch (error) {
+          emit({ type: 'command-error', id, reason: error.message });
+        }
+      }
       emit({ type: 'socket-open', socket: snapshot(socket, id) });
     });
 
@@ -77,6 +88,7 @@
         wasClean: event.wasClean,
       });
       sockets.delete(id);
+      pendingSends.delete(id);
     });
 
     socket.addEventListener('error', () => {
@@ -130,7 +142,18 @@
     }
 
     if (command.type === 'send') {
-      socket.send(typeof command.data === 'string' ? command.data : serialize(command.data));
+      const data = typeof command.data === 'string' ? command.data : serialize(command.data);
+      if (socket.readyState === NativeWebSocket.CONNECTING) {
+        pendingSends.get(command.id)?.push(data);
+        return;
+      }
+
+      if (socket.readyState !== NativeWebSocket.OPEN) {
+        emit({ type: 'command-error', id: command.id, reason: 'Socket is not open' });
+        return;
+      }
+
+      socket.send(data);
       return;
     }
 
