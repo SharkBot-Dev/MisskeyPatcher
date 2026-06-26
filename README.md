@@ -123,7 +123,6 @@ api.onRouteChange(() => {
 - `<html>` に `data-misskey-patcher-active="true"` を付けます。
 - Misskey の note らしい DOM に `data-mkp-note-root="true"` を付けます。
 - SPA の `history.pushState` / `replaceState` / `popstate` を見て route change 後に再パッチできます。
-- 右下に小さな `patched` バッジを出します。
 
 ## 注意
 

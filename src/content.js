@@ -48,7 +48,6 @@
   function legacySettings(items) {
     return {
       enabled: items.enabled ?? DEFAULTS.enabled,
-      showBadge: items.showBadge ?? DEFAULTS.showBadge,
       allowedHosts: items.allowedHosts ?? DEFAULTS.allowedHosts,
       customCss: items.customCss ?? DEFAULTS.customCss,
       customJs: items.customJs ?? DEFAULTS.customJs,
@@ -301,7 +300,6 @@
       '  </header>',
       '  <form class="mkp-inline-form">',
       '    <label class="mkp-check"><input name="enabled" type="checkbox"> <span>有効</span></label>',
-      '    <label class="mkp-check"><input name="showBadge" type="checkbox"> <span>バッジを表示</span></label>',
       '    <label><span>対象ホスト</span><textarea name="allowedHosts" spellcheck="false" placeholder="空欄なら Misskey 判定された全ホスト"></textarea></label>',
       '    <label><span>追加 CSS</span><textarea name="customCss" class="mkp-code" spellcheck="false"></textarea></label>',
       '    <div class="mkp-inline-actions">',
@@ -318,7 +316,6 @@
 
     function render(values) {
       form.elements.namedItem('enabled').checked = values.enabled;
-      form.elements.namedItem('showBadge').checked = values.showBadge;
       form.elements.namedItem('allowedHosts').value = values.allowedHosts;
       form.elements.namedItem('customCss').value = values.customCss;
     }
@@ -326,7 +323,6 @@
     function collect() {
       return {
         enabled: form.elements.namedItem('enabled').checked,
-        showBadge: form.elements.namedItem('showBadge').checked,
         allowedHosts: fieldValue(form, 'allowedHosts'),
         customCss: fieldValue(form, 'customCss'),
       };
@@ -342,7 +338,6 @@
       if (target?.closest('[data-mkp-reset="true"]')) {
         const basicDefaults = {
           enabled: DEFAULTS.enabled,
-          showBadge: DEFAULTS.showBadge,
           allowedHosts: DEFAULTS.allowedHosts,
           customCss: DEFAULTS.customCss,
         };
@@ -365,7 +360,6 @@
 
       setCurrentInstanceSettings(nextSettings, () => {
         installStyle('mkp-custom-style', nextSettings.customCss);
-        document.getElementById('mkp-badge')?.toggleAttribute('hidden', !nextSettings.showBadge);
         syncUserScripts((response) => {
           if (response?.ok) {
             status.textContent = `保存しました。CSS は反映済み、${response.count} 件の追加 JS はページ再読み込み後に反映されます。`;

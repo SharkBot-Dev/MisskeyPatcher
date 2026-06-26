@@ -1,6 +1,5 @@
 const DEFAULTS = {
   enabled: true,
-  showBadge: true,
   allowedHosts: '',
   customCss: [
     '/* Example: make built Misskey pages feel slightly denser. */',
@@ -26,7 +25,6 @@ const INSTANCE_SETTINGS_KEY = 'instanceSettings';
 const fields = {
   instanceHost: document.getElementById('instanceHost'),
   enabled: document.getElementById('enabled'),
-  showBadge: document.getElementById('showBadge'),
   allowedHosts: document.getElementById('allowedHosts'),
   customCss: document.getElementById('customCss'),
   customJs: document.getElementById('customJs'),
@@ -57,7 +55,6 @@ function hostFromUrl(url) {
 function legacySettings(items) {
   return {
     enabled: items.enabled ?? DEFAULTS.enabled,
-    showBadge: items.showBadge ?? DEFAULTS.showBadge,
     allowedHosts: items.allowedHosts ?? DEFAULTS.allowedHosts,
     customCss: items.customCss ?? DEFAULTS.customCss,
     customJs: items.customJs ?? DEFAULTS.customJs,
@@ -110,7 +107,6 @@ function render(items) {
   persistSelectedPlugin();
   fields.instanceHost.value = items.instanceHost ?? fields.instanceHost.value;
   fields.enabled.checked = items.enabled;
-  fields.showBadge.checked = items.showBadge;
   fields.allowedHosts.value = items.allowedHosts;
   fields.customCss.value = items.customCss;
   pluginDrafts = normalizePlugins(items);
@@ -122,7 +118,6 @@ function collect() {
   persistSelectedPlugin();
   return {
     enabled: fields.enabled.checked,
-    showBadge: fields.showBadge.checked,
     allowedHosts: fields.allowedHosts.value,
     customCss: fields.customCss.value,
     customJs: pluginDrafts[0]?.code ?? '',
