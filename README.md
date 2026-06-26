@@ -46,6 +46,10 @@ api.rerunSoon(() => api.markNotes(), 300);
 - `api.installStyle(css, id)` / `api.removeStyle(id)`: CSS の追加・削除
 - `api.toast(message, { timeout })`: 簡易通知を表示
 - `api.misskeyApi(endpoint, body)`: 同一インスタンスの `/api/*` を呼び出す
+- `api.openWebSocket(path, options)`: 同一インスタンスへ WebSocket 接続
+- `api.openMisskeyStream(options)` / `api.stream(options)`: Misskey Streaming API 用 wrapper
+- `api.reuseMisskeyStream(options)` / `api.pageStream(options)`: Misskey クライアントが開いた `/streaming` WebSocket を再利用
+- `api.listReusableStreams()`: bridge が捕まえた Misskey WebSocket の一覧
 - `api.store.get(key)` / `api.store.set(key, value)` / `api.store.remove(key)`: プラグイン名ごとの localStorage 保存
 
 例:
@@ -65,6 +69,54 @@ api.on('article', 'click', (_event, article) => {
 const meta = await api.misskeyApi('meta', {});
 api.store.set('lastMetaName', meta.name);
 ```
+
+Misskey Streaming API の例:
+
+```js
+const stream = api.openMisskeyStream();
+
+stream.onOpen(() => {
+  const home = stream.channel('homeTimeline', {}, (message) => {
+    console.log('homeTimeline', message);
+  });
+
+  api.onRouteChange(() => {
+    if (api.path !== '/') home.disconnect();
+  });
+});
+
+stream.onError(() => api.toast('Streaming API に接続できませんでした'));
+```
+
+認証が必要なチャンネルでは、発行済みトークンを渡せます。
+
+```js
+const stream = api.openMisskeyStream({ token: 'YOUR_TOKEN' });
+stream.onOpen(() => {
+  const channelId = stream.connect('main');
+  stream.onChannelMessage(channelId, (message) => {
+    console.log(message);
+  });
+});
+```
+
+Misskey 本体が既に接続している Streaming WebSocket を使い回す例:
+
+```js
+const stream = await api.reuseMisskeyStream();
+
+const channel = stream.channel('main', {}, (message) => {
+  if (message?.type === 'deleted') {
+    api.toast(`ノートが削除されました\n${message.body?.id ?? ''}`);
+  }
+});
+
+api.onRouteChange(() => {
+  if (api.path.startsWith('/settings')) channel.disconnect();
+});
+```
+
+`reuseMisskeyStream()` はページ本体の WebSocket を `document_start` の bridge で捕まえます。拡張を再読み込みした直後に既に Misskey ページが開いていた場合は、ページを再読み込みしてから使ってください。既存接続が見つからない場合は新規接続へフォールバックします。フォールバックさせたくない場合は `await api.reuseMisskeyStream({ fallbackNew: false })` を使います。
 
 ## 初期パッチの内容
 

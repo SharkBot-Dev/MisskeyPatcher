@@ -6,6 +6,7 @@ module.exports = {
   entry: {
     background: './src/background.js',
     content: './src/content.js',
+    'page-bridge': './src/page-bridge.js',
     popup: './src/popup.js',
     options: './src/options.js',
   },

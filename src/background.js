@@ -295,6 +295,337 @@ function buildUserScriptCode(userCode, pluginName, extensionVersion) {
     return text ? JSON.parse(text) : null;
   }
 
+  function misskeyWebSocketUrl(path = '/streaming', params = {}) {
+    const url = new URL(path, location.href);
+    url.protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+
+    for (const [key, value] of Object.entries(params)) {
+      if (value == null || value === '') continue;
+      url.searchParams.set(key, String(value));
+    }
+
+    return url.toString();
+  }
+
+  function parseSocketMessage(event) {
+    if (typeof event.data !== 'string') return event.data;
+
+    try {
+      return JSON.parse(event.data);
+    } catch {
+      return event.data;
+    }
+  }
+
+  function openWebSocket(path = '/streaming', options = {}) {
+    const params = { ...(options.params ?? {}) };
+    if (options.token && !params.i) params.i = options.token;
+
+    const socket = new WebSocket(misskeyWebSocketUrl(path, params), options.protocols);
+
+    function onOpen(callback) {
+      socket.addEventListener('open', callback);
+      return () => socket.removeEventListener('open', callback);
+    }
+
+    function onClose(callback) {
+      socket.addEventListener('close', callback);
+      return () => socket.removeEventListener('close', callback);
+    }
+
+    function onError(callback) {
+      socket.addEventListener('error', callback);
+      return () => socket.removeEventListener('error', callback);
+    }
+
+    function onMessage(callback) {
+      const listener = (event) => callback(parseSocketMessage(event), event);
+      socket.addEventListener('message', listener);
+      return () => socket.removeEventListener('message', listener);
+    }
+
+    function sendRaw(data) {
+      socket.send(typeof data === 'string' ? data : JSON.stringify(data));
+    }
+
+    function send(type, body = {}) {
+      sendRaw({ type, body });
+    }
+
+    return Object.freeze({
+      socket,
+      onOpen,
+      onClose,
+      onError,
+      onMessage,
+      send,
+      sendRaw,
+      close: (code, reason) => socket.close(code, reason),
+      get readyState() {
+        return socket.readyState;
+      },
+    });
+  }
+
+  function openMisskeyStream(options = {}) {
+    const ws = openWebSocket('/streaming', {
+      token: options.token,
+      params: options.params,
+      protocols: options.protocols,
+    });
+    const channelCallbacks = new Map();
+
+    ws.onMessage((message, event) => {
+      if (!message || typeof message !== 'object') return;
+      if (message.type !== 'channel') return;
+
+      const channelId = message.body?.id;
+      const callbacks = channelCallbacks.get(channelId);
+      if (!callbacks) return;
+
+      for (const callback of callbacks) {
+        callback(message.body?.body, message, event);
+      }
+    });
+
+    function connect(channel, params = {}, id = channel + ':' + Math.random().toString(36).slice(2, 10)) {
+      ws.send('connect', {
+        channel,
+        id,
+        params,
+      });
+      return id;
+    }
+
+    function disconnect(id) {
+      ws.send('disconnect', { id });
+      channelCallbacks.delete(id);
+    }
+
+    function onChannelMessage(id, callback) {
+      const callbacks = channelCallbacks.get(id) ?? new Set();
+      callbacks.add(callback);
+      channelCallbacks.set(id, callbacks);
+      return () => {
+        callbacks.delete(callback);
+        if (callbacks.size === 0) channelCallbacks.delete(id);
+      };
+    }
+
+    function channel(channel, params = {}, callback) {
+      const id = connect(channel, params);
+      const off = callback ? onChannelMessage(id, callback) : () => {};
+      return Object.freeze({
+        id,
+        off,
+        disconnect: () => {
+          off();
+          disconnect(id);
+        },
+      });
+    }
+
+    return Object.freeze({
+      ...ws,
+      connect,
+      disconnect,
+      onChannelMessage,
+      channel,
+    });
+  }
+
+  const pageSocketState = {
+    sockets: new Map(),
+    waiters: new Set(),
+  };
+
+  function parseBridgeDetail(detail) {
+    if (typeof detail !== 'string') return null;
+    try {
+      return JSON.parse(detail);
+    } catch {
+      return null;
+    }
+  }
+
+  function emitBridgeCommand(command) {
+    window.dispatchEvent(new CustomEvent('misskey-patcher:ws-command', {
+      detail: JSON.stringify(command),
+    }));
+  }
+
+  function parseBridgeSocketMessage(data) {
+    if (typeof data !== 'string') return data;
+    try {
+      return JSON.parse(data);
+    } catch {
+      return data;
+    }
+  }
+
+  function updateBridgeSocket(socket) {
+    if (!socket?.id) return;
+    pageSocketState.sockets.set(socket.id, socket);
+    for (const waiter of pageSocketState.waiters) {
+      waiter(socket);
+    }
+  }
+
+  window.addEventListener('misskey-patcher:ws-bridge', (event) => {
+    const message = parseBridgeDetail(event.detail);
+    if (!message) return;
+
+    if (message.type === 'socket-list') {
+      for (const socket of message.sockets ?? []) {
+        updateBridgeSocket(socket);
+      }
+      return;
+    }
+
+    if (message.socket) {
+      updateBridgeSocket(message.socket);
+    }
+
+    if (message.type === 'socket-close' && message.socket?.id) {
+      pageSocketState.sockets.delete(message.socket.id);
+    }
+  });
+
+  function listReusableStreams() {
+    emitBridgeCommand({ type: 'list' });
+    return [...pageSocketState.sockets.values()]
+      .filter((socket) => socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING);
+  }
+
+  function waitForReusableStream(options = {}) {
+    const timeout = options.timeout ?? 5000;
+    const existing = listReusableStreams()[0];
+    if (existing) return Promise.resolve(existing);
+
+    return new Promise((resolve, reject) => {
+      const timer = timeout > 0 ? setTimeout(() => {
+        pageSocketState.waiters.delete(waiter);
+        reject(new Error('Timed out waiting for Misskey page WebSocket'));
+      }, timeout) : null;
+
+      const waiter = (socket) => {
+        if (socket.readyState !== WebSocket.OPEN && socket.readyState !== WebSocket.CONNECTING) return;
+        pageSocketState.waiters.delete(waiter);
+        if (timer) clearTimeout(timer);
+        resolve(socket);
+      };
+
+      pageSocketState.waiters.add(waiter);
+      emitBridgeCommand({ type: 'list' });
+    });
+  }
+
+  async function reuseMisskeyStream(options = {}) {
+    let socket;
+    try {
+      socket = await waitForReusableStream(options);
+    } catch (error) {
+      if (options.fallbackNew === false) throw error;
+      return openMisskeyStream(options);
+    }
+
+    const channelCallbacks = new Map();
+    const messageCallbacks = new Set();
+
+    const offBridge = (event) => {
+      const bridgeMessage = parseBridgeDetail(event.detail);
+      if (!bridgeMessage || bridgeMessage.socket?.id !== socket.id) return;
+
+      if (bridgeMessage.type === 'socket-message') {
+        const message = parseBridgeSocketMessage(bridgeMessage.data);
+        for (const callback of messageCallbacks) {
+          callback(message, bridgeMessage);
+        }
+
+        if (!message || typeof message !== 'object' || message.type !== 'channel') return;
+        const channelId = message.body?.id;
+        const callbacks = channelCallbacks.get(channelId);
+        if (!callbacks) return;
+        for (const callback of callbacks) {
+          callback(message.body?.body, message, bridgeMessage);
+        }
+      }
+    };
+
+    window.addEventListener('misskey-patcher:ws-bridge', offBridge);
+
+    function sendRaw(data) {
+      emitBridgeCommand({
+        type: 'send',
+        id: socket.id,
+        data: typeof data === 'string' ? data : JSON.stringify(data),
+      });
+    }
+
+    function send(type, body = {}) {
+      sendRaw({ type, body });
+    }
+
+    function connect(channel, params = {}, id = channel + ':' + Math.random().toString(36).slice(2, 10)) {
+      send('connect', {
+        channel,
+        id,
+        params,
+      });
+      return id;
+    }
+
+    function disconnect(id) {
+      send('disconnect', { id });
+      channelCallbacks.delete(id);
+    }
+
+    function onMessage(callback) {
+      messageCallbacks.add(callback);
+      return () => messageCallbacks.delete(callback);
+    }
+
+    function onChannelMessage(id, callback) {
+      const callbacks = channelCallbacks.get(id) ?? new Set();
+      callbacks.add(callback);
+      channelCallbacks.set(id, callbacks);
+      return () => {
+        callbacks.delete(callback);
+        if (callbacks.size === 0) channelCallbacks.delete(id);
+      };
+    }
+
+    function channel(channel, params = {}, callback) {
+      const id = connect(channel, params);
+      const off = callback ? onChannelMessage(id, callback) : () => {};
+      return Object.freeze({
+        id,
+        off,
+        disconnect: () => {
+          off();
+          disconnect(id);
+        },
+      });
+    }
+
+    return Object.freeze({
+      id: socket.id,
+      url: socket.url,
+      reused: true,
+      connect,
+      disconnect,
+      onMessage,
+      onChannelMessage,
+      channel,
+      send,
+      sendRaw,
+      closeBridge: () => window.removeEventListener('misskey-patcher:ws-bridge', offBridge),
+      get readyState() {
+        return pageSocketState.sockets.get(socket.id)?.readyState ?? WebSocket.CLOSED;
+      },
+    });
+  }
+
   const store = Object.freeze({
     get(key, fallback = null) {
       const raw = localStorage.getItem('misskey-patcher:' + pluginName + ':' + key);
@@ -386,6 +717,13 @@ function buildUserScriptCode(userCode, pluginName, extensionVersion) {
       on,
       toast,
       misskeyApi,
+      misskeyWebSocketUrl,
+      openWebSocket,
+      openMisskeyStream,
+      stream: openMisskeyStream,
+      reuseMisskeyStream,
+      pageStream: reuseMisskeyStream,
+      listReusableStreams,
       store,
       markNotes,
       onRouteChange,
@@ -400,7 +738,7 @@ function buildUserScriptCode(userCode, pluginName, extensionVersion) {
     });
 
     try {
-      ((window, document, api) => {
+      await (async (window, document, api) => {
 ${indentUserCode(userCode)}
       })(window, document, api);
     } catch (error) {
