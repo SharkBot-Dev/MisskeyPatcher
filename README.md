@@ -53,6 +53,10 @@ api.rerunSoon(() => api.markNotes(), 300);
 - `api.openMisskeyStream(options)` / `api.stream(options)`: Misskey Streaming API 用 wrapper
 - `api.reuseMisskeyStream(options)` / `api.pageStream(options)`: Misskey クライアントが開いた `/streaming` WebSocket を再利用
 - `api.listReusableStreams()`: bridge が捕まえた Misskey WebSocket の一覧
+- `api.client.get(path)` / `api.getClientVariable(path)`: ページ本体の `window` 変数を取得
+- `api.client.set(path, value)` / `api.setClientVariable(path, value)`: ページ本体の `window` 変数を更新
+- `api.client.call(path, args)` / `api.callClientFunction(path, args)`: ページ本体の関数を呼び出し
+- `api.client.has(path)` / `api.client.keys(path)`: ページ本体の変数存在確認 / key 一覧
 - `api.store.get(key)` / `api.store.set(key, value)` / `api.store.remove(key)`: プラグイン名ごとの localStorage 保存
 
 例:
@@ -72,6 +76,19 @@ api.on('article', 'click', (_event, article) => {
 const meta = await api.misskeyApi('meta', {});
 api.store.set('lastMetaName', meta.name);
 ```
+
+ページ本体が保持している `window` 上の変数へアクセスする例:
+
+```js
+const hasMk = await api.client.has('mk');
+const keys = await api.client.keys('mk');
+const value = await api.getClientVariable('someClientState.currentUser');
+
+await api.setClientVariable('someClientState.debugEnabled', true);
+await api.callClientFunction('someClientState.refresh', []);
+```
+
+取得・返却できる値は JSON 化できる値が中心です。DOM ノードや関数そのものは直接返せないため、関数呼び出しは `api.client.call()` を使ってください。
 
 設定メニューへ plugin 独自の項目を追加する例:
 

@@ -32,6 +32,52 @@
     }
   }
 
+  function cloneForBridge(value) {
+    if (value == null || ['string', 'number', 'boolean'].includes(typeof value)) return value;
+    try {
+      return JSON.parse(JSON.stringify(value));
+    } catch {
+      return String(value);
+    }
+  }
+
+  function parsePropertyPath(path) {
+    if (Array.isArray(path)) return path.map((part) => String(part)).filter(Boolean);
+    return String(path ?? '')
+      .replace(/\[(?:"([^"]+)"|'([^']+)'|([^\]]+))\]/g, (_match, doubleQuoted, singleQuoted, bare) => {
+        const key = doubleQuoted ?? singleQuoted ?? String(bare ?? '').trim();
+        return '.' + key;
+      })
+      .split('.')
+      .map((part) => part.trim())
+      .filter(Boolean);
+  }
+
+  function assertSafePropertyPath(parts) {
+    if (parts.length === 0) throw new Error('Variable path is required');
+    if (parts.some((part) => ['__proto__', 'prototype', 'constructor'].includes(part))) {
+      throw new Error('Unsafe variable path');
+    }
+  }
+
+  function resolvePropertyPath(path, options = {}) {
+    const parts = parsePropertyPath(path);
+    assertSafePropertyPath(parts);
+
+    const parentParts = options.parent ? parts.slice(0, -1) : parts;
+    let target = window;
+    for (const part of parentParts) {
+      if (target == null) throw new Error('Variable path not found: ' + parts.join('.'));
+      target = target[part];
+    }
+
+    return {
+      parts,
+      target,
+      key: parts[parts.length - 1],
+    };
+  }
+
   function isMisskeyStreamingUrl(url) {
     try {
       const parsed = new URL(String(url), location.href);
@@ -159,6 +205,58 @@
 
     if (command.type === 'close') {
       socket.close(command.code, command.reason);
+    }
+  });
+
+  window.addEventListener('misskey-patcher:client-command', (event) => {
+    const command = parseDetail(event.detail);
+    if (!command?.id) return;
+
+    try {
+      if (command.type === 'get') {
+        const { target } = resolvePropertyPath(command.path);
+        emit({ type: 'client-response', id: command.id, ok: true, value: cloneForBridge(target) });
+        return;
+      }
+
+      if (command.type === 'set') {
+        const { target, key } = resolvePropertyPath(command.path, { parent: true });
+        if (target == null) throw new Error('Variable path not found');
+        target[key] = command.value;
+        emit({ type: 'client-response', id: command.id, ok: true, value: cloneForBridge(target[key]) });
+        return;
+      }
+
+      if (command.type === 'has') {
+        const { target, key } = resolvePropertyPath(command.path, { parent: true });
+        emit({ type: 'client-response', id: command.id, ok: true, value: !!target && key in target });
+        return;
+      }
+
+      if (command.type === 'keys') {
+        const { target } = resolvePropertyPath(command.path || 'window');
+        emit({ type: 'client-response', id: command.id, ok: true, value: Object.keys(Object(target)) });
+        return;
+      }
+
+      if (command.type === 'call') {
+        const { target, key } = resolvePropertyPath(command.path, { parent: true });
+        const fn = target?.[key];
+        if (typeof fn !== 'function') throw new Error('Variable is not callable: ' + command.path);
+        const value = fn.apply(target, Array.isArray(command.args) ? command.args : []);
+        if (value && typeof value.then === 'function') {
+          value
+            .then((resolved) => emit({ type: 'client-response', id: command.id, ok: true, value: cloneForBridge(resolved) }))
+            .catch((error) => emit({ type: 'client-response', id: command.id, ok: false, error: error.message }));
+          return;
+        }
+        emit({ type: 'client-response', id: command.id, ok: true, value: cloneForBridge(value) });
+        return;
+      }
+
+      throw new Error('Unknown client command: ' + command.type);
+    } catch (error) {
+      emit({ type: 'client-response', id: command.id, ok: false, error: error.message });
     }
   });
 

@@ -669,6 +669,77 @@ function buildUserScriptCode(userCode, pluginName, extensionVersion) {
     }));
   }
 
+  const clientVariableState = {
+    pending: new Map(),
+    nextId: 1,
+  };
+
+  function emitClientCommand(command) {
+    window.dispatchEvent(new CustomEvent('misskey-patcher:client-command', {
+      detail: serializeBridgePayload(command),
+    }));
+  }
+
+  function requestClientVariable(type, payload = {}, options = {}) {
+    const timeout = options.timeout ?? 5000;
+    const id = pluginName + ':client:' + clientVariableState.nextId++;
+
+    return new Promise((resolve, reject) => {
+      const timer = timeout > 0 ? setTimeout(() => {
+        clientVariableState.pending.delete(id);
+        reject(new Error('Timed out waiting for client variable response'));
+      }, timeout) : null;
+
+      clientVariableState.pending.set(id, {
+        resolve,
+        reject,
+        timer,
+      });
+
+      emitClientCommand({
+        ...payload,
+        type,
+        id,
+      });
+    });
+  }
+
+  window.addEventListener('misskey-patcher:ws-bridge', (event) => {
+    const message = parseBridgeDetail(event.detail);
+    if (!message || message.type !== 'client-response') return;
+
+    const pending = clientVariableState.pending.get(String(message.id ?? ''));
+    if (!pending) return;
+
+    clientVariableState.pending.delete(String(message.id));
+    if (pending.timer) clearTimeout(pending.timer);
+
+    if (message.ok) {
+      pending.resolve(message.value);
+      return;
+    }
+
+    pending.reject(new Error(message.error || 'Client variable request failed'));
+  });
+
+  const client = Object.freeze({
+    get(path, options = {}) {
+      return requestClientVariable('get', { path }, options);
+    },
+    set(path, value, options = {}) {
+      return requestClientVariable('set', { path, value }, options);
+    },
+    has(path, options = {}) {
+      return requestClientVariable('has', { path }, options);
+    },
+    keys(path = 'window', options = {}) {
+      return requestClientVariable('keys', { path }, options);
+    },
+    call(path, args = [], options = {}) {
+      return requestClientVariable('call', { path, args }, options);
+    },
+  });
+
   function parseBridgeSocketMessage(data) {
     if (typeof data !== 'string') return data;
     try {
@@ -946,6 +1017,10 @@ function buildUserScriptCode(userCode, pluginName, extensionVersion) {
       reuseMisskeyStream,
       pageStream: reuseMisskeyStream,
       listReusableStreams,
+      client,
+      getClientVariable: client.get,
+      setClientVariable: client.set,
+      callClientFunction: client.call,
       store,
       markNotes,
       onRouteChange,
