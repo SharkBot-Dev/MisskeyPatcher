@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Misskey Build Page Patcher",
+  "name": "MisskeyTools",
   "version": "0.1.0",
-  "description": "Applies CSS/JS patches to built Misskey pages without modifying the Misskey build output.",
+  "description": "Misskeyに様々な便利機能を追加します。",
   "permissions": [
     "storage",
     "activeTab",
@@ -43,5 +43,11 @@
       ],
       "run_at": "document_start"
     }
-  ]
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
 }
