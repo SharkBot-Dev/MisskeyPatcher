@@ -377,6 +377,15 @@
         openPluginSettings();
       },
     },
+    {
+      name: '最初に見るところ',
+      icon: 'ti ti-settings-2 ti-fw',
+      onClick: (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        openReadyModal();
+      },
+    },
   ];
 
   function settingsMenuButtons() {
@@ -1014,7 +1023,7 @@
       '<section class="mkp-inline-dialog" role="dialog" aria-modal="true" aria-labelledby="mkp-inline-title">',
       '  <header class="mkp-inline-header">',
       '    <div>',
-      '      <h2 id="mkp-inline-title">MisskeyPatcher設定</h2>',
+      '      <h2 id="mkp-inline-title">MisskeyTools設定</h2>',
       `      <p>${currentInstanceHost()}</p>`,
       '    </div>',
       '    <button class="mkp-icon-button" type="button" data-mkp-close="true" aria-label="閉じる">×</button>',
@@ -1083,7 +1092,7 @@
         installStyle('mkp-custom-style', nextSettings.customCss);
         syncUserScripts((response) => {
           if (response?.ok) {
-            status.textContent = `保存しました。CSS は反映済み、${response.count} 件の追加 JS はページ再読み込み後に反映されます。`;
+            status.textContent = `保存しました。CSS は反映済み、${response.count} 件の追加`;
             return;
           }
 
@@ -1092,7 +1101,7 @@
             return;
           }
 
-          status.textContent = `保存しました。追加 JS の登録には Chrome の Allow User Scripts または Developer mode が必要です。`;
+          status.textContent = `保存しました。`;
         });
       });
     });
@@ -1115,7 +1124,7 @@
       '<section class="mkp-inline-dialog mkp-plugin-dialog" role="dialog" aria-modal="true" aria-labelledby="mkp-plugin-title">',
       '  <header class="mkp-inline-header">',
       '    <div>',
-      '      <h2 id="mkp-plugin-title">MisskeyPatcherプラグイン設定</h2>',
+      '      <h2 id="mkp-plugin-title">MisskeyToolsプラグイン設定</h2>',
       `      <p>${currentInstanceHost()}</p>`,
       '    </div>',
       '    <button class="mkp-icon-button" type="button" data-mkp-close="true" aria-label="閉じる">×</button>',
@@ -1134,7 +1143,7 @@
       '    <div class="mkp-inline-actions">',
       '      <button type="submit">保存</button>',
       '    </div>',
-      '    <p class="mkp-inline-status" role="status"></p>',
+      '    <p class="mkp-inline-status" role="status">Chrome拡張機能の設定を開き、MisskeyToolsを開き、<br>「ユーザー スクリプトを許可する」を有効にしてください。</p>',
       '  </form>',
       '</section>',
     ].join('');
@@ -1275,6 +1284,46 @@
     });
 
     renderPluginEditor();
+    (document.body || document.documentElement).append(root);
+    form.elements.namedItem('pluginList').focus();
+  }
+
+  async function openReadyModal() {
+    document.getElementById('mkp-inline-settings')?.remove();
+    const root = document.createElement('div');
+    root.id = 'mkp-inline-settings';
+    root.innerHTML = [
+      '<div class="mkp-inline-backdrop" data-mkp-close="true"></div>',
+      '<section class="mkp-inline-dialog mkp-plugin-dialog" role="dialog" aria-modal="true" aria-labelledby="mkp-plugin-title">',
+      '  <header class="mkp-inline-header">',
+      '    <div>',
+      '      <h2 id="mkp-plugin-title">最初にお読みください</h2>',
+      `      <p>${currentInstanceHost()}</p>`,
+      '    </div>',
+      '    <button class="mkp-icon-button" type="button" data-mkp-close="true" aria-label="閉じる">×</button>',
+      '  </header>',
+      '  <div style="padding: 18px 20px 14px;">',
+      '    <h3>プラグインが正しく動作するために</h3>',
+      '    Chrome拡張機能の設定を開き、MisskeyToolsを開き、<br>「ユーザー スクリプトを許可する」を有効にしてください。',
+      '    <h3>どこでプラグインを入手すればいい？</h3>',
+      '    <button data-mkp-get-plugin="true">このページから入手できます。</a>',
+      '  </div>',
+      '</section>',
+    ].join('');
+
+    function close() {
+      root.remove();
+    }
+
+    root.addEventListener('click', (event) => {
+      const target = event.target instanceof Element ? event.target : null;
+      if (target?.closest('[data-mkp-close="true"]')) close();
+
+      if (target?.closest('[data-mkp-get-plugin="true"]')) {
+        location.href = "https://github.com/SharkBot-Dev/MisskeyPatcher/tree/main/plugins"
+      }
+    });
+
     (document.body || document.documentElement).append(root);
     form.elements.namedItem('pluginList').focus();
   }
