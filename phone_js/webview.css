@@ -1,0 +1,50 @@
+#mkp-phone-controls {
+  position: fixed;
+  right: max(12px, env(safe-area-inset-right));
+  bottom: max(72px, calc(env(safe-area-inset-bottom) + 72px));
+  z-index: 2147483646;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+#mkp-phone-controls button {
+  min-height: 44px;
+  padding: 8px 16px;
+  border: 1px solid #777;
+  border-radius: 12px;
+  background: var(--MI_THEME-panel, #222);
+  color: var(--MI_THEME-fg, #fff);
+  font: 600 14px system-ui, sans-serif;
+}
+#mkp-phone-controls > div:not([hidden]) {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+#mkp-inline-settings .mkp-inline-dialog {
+  box-sizing: border-box;
+  width: min(720px, calc(100vw - 16px));
+  max-height: 90vh;
+  max-height: 90dvh;
+  overflow: auto;
+}
+#mkp-inline-settings button { min-height: 44px; }
+#mkp-inline-settings textarea,
+#mkp-inline-settings input[type="text"],
+#mkp-inline-settings select { font-size: 16px; box-sizing: border-box; }
+#mkp-inline-settings .mkp-plugin-toolbar,
+#mkp-inline-settings .mkp-inline-actions { flex-wrap: wrap; }
+.mkp-phone-toast {
+  position: fixed;
+  z-index: 2147483647;
+  left: 16px;
+  right: 16px;
+  bottom: 140px;
+  padding: 12px;
+  border-radius: 8px;
+  background: #222;
+  color: white;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

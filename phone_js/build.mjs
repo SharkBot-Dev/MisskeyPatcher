@@ -15,6 +15,12 @@ runtime = runtime.replace('(() => {', 'async function runPlugin(pluginName, run)
   .replace('  main();\n})();', '  return main();\n}');
 
 let content = read('../src/content.js');
+// Keep the page controls available even when patches have been disabled.
+content = content.replace('    if (!settings.enabled || !hostIsAllowed(settings.allowedHosts)) return;', '')
+  .replace('    state.active = true;', `    installPhoneStyle();
+    installPhoneControls(openInlineSettings, openPluginSettings);
+    if (!settings.enabled || !hostIsAllowed(settings.allowedHosts)) return;
+    state.active = true;`);
 const storageStart = content.indexOf('  function getChromeStorage()');
 const storageEnd = content.indexOf('  function hostIsAllowed(', storageStart);
 content = content.slice(0, storageStart) + `
@@ -44,16 +50,22 @@ content = content.replace("chrome.runtime?.getManifest?.().version ?? 'dev'", "'
   .replaceAll('Chrome拡張機能の設定を開き、MisskeyToolsを開き、<br>「ユーザー スクリプトを許可する」を有効にしてください。', 'プラグインを保存した後、このページを再読み込みしてください。')
   .replace('保存しました。追加 JS の登録には Chrome の Allow User Scripts または Developer mode が必要です。', '保存しました。ページを再読み込みしてください。')
   .replace("    form.elements.namedItem('pluginList').focus();\n  }\n\n  function onRouteChange", "    root.querySelector('button')?.focus();\n  }\n\n  function onRouteChange");
-content = content.replace('    state.active = true;', `    installPhoneStyle();
-    state.active = true;`);
+content = content.replace('CSS は反映済み、${response.count} 件の追加', 'CSS は反映済みです。設定とプラグインは再読み込み後に反映されます。${response.count} 件のプラグインを保存しました。');
 content = content.replace('  main();', `  main().then(async () => {
     if (!state.active) return;
     const settings = await getChromeStorage();
+    // Basic patches do not need dynamic compilation (which may be blocked by CSP).
+    await runPlugin('MisskeyPatcher', api => {
+      api.markNotes();
+      api.onRouteChange(() => api.markNotes());
+      api.observe('article', () => api.markNotes());
+    });
     for (const plugin of normalizePlugins(settings)) {
       if (!plugin.enabled || !plugin.code.trim()) continue;
+      if (plugin.code === DEFAULTS.customJs) continue;
       try {
         const execute = new AsyncFunction('window', 'document', 'api', plugin.code);
-        await runPlugin(plugin.name, api => execute(window, document, api));
+        runPlugin(plugin.name, api => execute(window, document, api)).catch(error => toast(plugin.name + ': ' + error.message));
       } catch (error) {
         console.error('[Misskey Patcher phone] plugin failed:', plugin.name, error);
         toast(plugin.name + ': ' + error.message);
@@ -77,6 +89,7 @@ if (window.__misskeyPatcherPhoneInstalled) return;
 window.__misskeyPatcherPhoneInstalled = true;
 const SETTINGS_KEY = 'misskey-patcher:phone:settings';
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+${read('webview-shell.js')}
 function readSettings() {
   try { return JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}') || {}; }
   catch (error) { console.warn('[Misskey Patcher phone] settings unavailable', error); return {}; }
@@ -84,7 +97,7 @@ function readSettings() {
 function installPhoneStyle() {
   const style = document.createElement('style');
   style.id = 'mkp-phone-ui-style';
-  style.textContent = ${JSON.stringify(read('../src/ui.css') + '\n' + read('../src/patch.css'))};
+  style.textContent = ${JSON.stringify(read('../src/patch.css') + '\n' + read('webview.css'))};
   (document.head || document.documentElement).append(style);
 }
 ${read('../src/page-bridge.js')}
