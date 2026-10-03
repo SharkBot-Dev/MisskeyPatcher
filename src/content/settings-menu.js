@@ -1,9 +1,12 @@
 import { openInlineSettings } from './inline-settings.js';
 import { openPluginSettings } from './plugin-settings.js';
-import { openDefaultPatchWindow } from '../window/privacyPatch.js';
 import { openReadyModal } from './help-modals.js';
 import { state } from './state.js';
 import { emitPluginSettingsEvent } from './bridge.js';
+
+// 設定画面
+import { openDefaultPrivacyPatchWindow } from '../window/privacyPatch.js';
+import { openDefaultOtherPatchWindow } from '../window/otherPatch.js';
 
 const buttons = [
   {
@@ -25,13 +28,28 @@ const buttons = [
     },
   },
   {
-    name: '便利機能（プライバシー）',
+    type: "category_bar" // カテゴリごとのバー
+  },
+  {
+    name: 'プライバシー機能',
     icon: 'ti ti-settings-2 ti-fw',
     onClick: async (event) => {
       event.preventDefault();
       event.stopPropagation();
-      openDefaultPatchWindow();
+      openDefaultPrivacyPatchWindow();
     },
+  },
+  {
+    name: 'その他の機能',
+    icon: 'ti ti-settings-2 ti-fw',
+    onClick: async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      openDefaultOtherPatchWindow();
+    },
+  },
+  {
+    type: "category_bar" // カテゴリごとのバー
   },
   {
     name: '最初に見るところ',
@@ -65,8 +83,15 @@ function settingsMenuButtons() {
 }
 
 function createSettingsRow(dataVName) {
-  let buttons_list = [];
+  const categories = [[]];
   settingsMenuButtons().forEach((value) => {
+    if (value.type === 'category_bar') {
+      if (categories[categories.length - 1].length > 0) {
+        categories.push([]);
+      }
+      return;
+    }
+
     const button = document.createElement('button');
     button.type = 'button';
     button.className = '_button item mkp-settings-menu-item';
@@ -87,13 +112,14 @@ function createSettingsRow(dataVName) {
       button.setAttribute(dataVName, "")
     }
     button.addEventListener('click', value.onClick);
-    buttons_list.push(button)
+    categories[categories.length - 1].push(button);
   })
-  return buttons_list;
+  return categories.filter((category) => category.length > 0);
 }
 
 export function refreshSettingsMenuItems() {
-  document.querySelector('[data-misskey-patcher-settings-group="true"]')?.remove();
+  document.querySelectorAll('[data-misskey-patcher-settings-group="true"]')
+    .forEach((group) => group.remove());
   injectSettingsMenuItem();
 }
 
@@ -111,22 +137,22 @@ export function injectSettingsMenuItem() {
     }
   }
 
-  const group = document.createElement('div');
-  group.className = 'group';
-  group.dataset.misskeyPatcherSettingsGroup = 'true';
-  if (dataVName) {
-    group.setAttribute(dataVName, "")
-  }
+  createSettingsRow(dataVName).forEach((category) => {
+    const group = document.createElement('div');
+    group.className = 'group';
+    group.dataset.misskeyPatcherSettingsGroup = 'true';
+    if (dataVName) {
+      group.setAttribute(dataVName, "")
+    }
 
-  const items = document.createElement('div');
-  items.className = 'items';
-  if (dataVName) {
-    items.setAttribute(dataVName, "")
-  }
-  createSettingsRow(dataVName).forEach((value) => {
-    items.append(value);
-  })
-  group.append(items);
+    const items = document.createElement('div');
+    items.className = 'items';
+    if (dataVName) {
+      items.setAttribute(dataVName, "")
+    }
+    items.append(...category);
+    group.append(items);
 
-  superMenu.append(group);
+    superMenu.append(group);
+  });
 }

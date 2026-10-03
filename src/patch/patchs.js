@@ -1,4 +1,5 @@
 import hiddenUserName from "./hiddenUsername.js"
+import userChan from "./userChan.js"
 
 export let routeChangeExecute = [];
 export let startUpExecute = [];
@@ -17,6 +18,7 @@ export async function executeStartUp() {
 
 export async function register() {
     hiddenUserName();
+    userChan();
 
     executeStartUp();
 }

@@ -1,7 +1,7 @@
 const patchs = [
     {
-        patchName: "ユーザー名非表示 (ユーザー名を非表示にします。配信時などに！)",
-        patchId: "hiddenUserName"
+        patchName: "ユーザー名に「ちゃん」を追加",
+        patchId: "addUserChan"
     }
 ];
 
@@ -83,7 +83,7 @@ function setCurrentInstanceSettings(nextSettings, callback) {
     });
 }
 
-export async function openDefaultPrivacyPatchWindow() {
+export async function openDefaultOtherPatchWindow() {
     document.getElementById('mkp-inline-settings')?.remove();
     const root = document.createElement('div');
     root.id = 'mkp-inline-settings';
@@ -104,7 +104,7 @@ export async function openDefaultPrivacyPatchWindow() {
       '<section class="mkp-inline-dialog mkp-plugin-dialog" role="dialog" aria-modal="true" aria-labelledby="mkp-plugin-title">',
       '  <header class="mkp-inline-header">',
       '    <div>',
-      '      <h2 id="mkp-plugin-title">プライバシー的なパッチ（）</h2>',
+      '      <h2 id="mkp-plugin-title">その他のパッチ</h2>',
       `      <p>${currentInstanceHost()}</p>`,
       '    </div>',
       '    <button class="mkp-icon-button" type="button" data-mkp-close="true" aria-label="閉じる">×</button>',
