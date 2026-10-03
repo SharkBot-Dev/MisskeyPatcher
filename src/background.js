@@ -1151,7 +1151,21 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
   });
 });
 
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+chrome.runtime.onMessage.addListener(async (message, _sender, sendResponse) => {
+  if (message.type == "errpr_user_script_check") {
+    if (!(await userScriptsAvailable())) {
+      sendResponse({ type: "errpr_user_script_disabled" });
+    }
+  }
+
+  if (message.type == "move_setting_user_script") {
+    chrome.tabs.create({
+      url: `chrome://extensions/?id=${chrome.runtime.id}`
+    });
+    sendResponse({ type: "move_setting_user_script_ok" });
+    return;
+  }
+
   if (message?.type !== 'mkp-sync-user-scripts') return false;
 
   syncUserScripts()
