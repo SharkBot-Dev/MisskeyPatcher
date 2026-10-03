@@ -129,7 +129,7 @@ async function execute() {
             for (const [node, record] of replacements) {
                 if (!node.isConnected || node.nodeValue !== record.replacement) replacements.delete(node);
             }
-            replaceTextInPage('@' + account.username, '非表示！');
+            replaceTextInPage('@' + account.username, '非表示');
         } finally {
             observer.observe(document.body, options);
         }
