@@ -1,6 +1,6 @@
 const patchs = [
     {
-        patchName: "ユーザー名非表示",
+        patchName: "ユーザー名非表示 (ユーザー名を非表示にします。配信時などに！)",
         patchId: "hiddenUserName"
     }
 ];

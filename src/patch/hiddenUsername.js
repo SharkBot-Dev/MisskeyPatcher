@@ -122,7 +122,7 @@ async function execute() {
         } catch {
             return;
         }
-        if (typeof account?.username !== 'string' || !account.username) return;
+        if (typeof account?.username !== 'string' || !account.username || !account.name) return;
 
         observer.disconnect();
         try {
@@ -130,6 +130,7 @@ async function execute() {
                 if (!node.isConnected || node.nodeValue !== record.replacement) replacements.delete(node);
             }
             replaceTextInPage('@' + account.username, '非表示');
+            replaceTextInPage(account.name, '非表示');
         } finally {
             observer.observe(document.body, options);
         }

@@ -25,7 +25,7 @@ const buttons = [
     },
   },
   {
-    name: 'プライバシー機能設定',
+    name: '便利機能（プライバシー）',
     icon: 'ti ti-settings-2 ti-fw',
     onClick: async (event) => {
       event.preventDefault();
