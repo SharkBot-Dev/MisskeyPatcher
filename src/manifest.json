@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "MisskeyTools",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Misskeyに様々な便利機能を追加します。",
   "permissions": [
     "storage",
