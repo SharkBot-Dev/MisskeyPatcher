@@ -1,11 +1,4 @@
-import { openFontReplacerWindow } from "./fontReplacer.js"
-
-const patchs = [
-    {
-        patchName: "ユーザー名に「ちゃん」を追加",
-        patchId: "addUserChan"
-    }
-];
+import { installStyle } from "./../content/styles.js";
 
 const INSTANCE_SETTINGS_KEY = 'instanceSettings';
 
@@ -85,65 +78,103 @@ function setCurrentInstanceSettings(nextSettings, callback) {
     });
 }
 
-export async function openDefaultOtherPatchWindow() {
+export async function openFontReplacerWindow() {
     document.getElementById('mkp-inline-settings')?.remove();
     const root = document.createElement('div');
     root.id = 'mkp-inline-settings';
 
-    let patchSettingNode = []
     const setting = await getChromeStorage();
     // console.log(setting)
-    patchs.forEach(async (patch) => {
-        let checked = false;
-        if (setting[patch.patchId]) {
-            checked = true;
-        }
-        patchSettingNode.push(`<label class="mkp-check"><input name="enabled" type="checkbox" class="mkp-` + patch.patchId + `" ` + (checked ? "checked" : "") + `> <span>` + patch.patchName + `</span></label>`);
-    })
     
     root.innerHTML = [
       '<div class="mkp-inline-backdrop" data-mkp-close="true"></div>',
       '<section class="mkp-inline-dialog mkp-plugin-dialog" role="dialog" aria-modal="true" aria-labelledby="mkp-plugin-title">',
       '  <header class="mkp-inline-header">',
       '    <div>',
-      '      <h2 id="mkp-plugin-title">その他のパッチ</h2>',
+      '      <h2 id="mkp-plugin-title">フォントを変更</h2>',
       `      <p>${currentInstanceHost()}</p>`,
       '    </div>',
       '    <button class="mkp-icon-button" type="button" data-mkp-close="true" aria-label="閉じる">×</button>',
       '  </header>',
       '  <div style="padding: 18px 20px 14px;" class="mkp-inline-form mkp-plugin-form">',
-      patchSettingNode.join(` `),
-      `<div class="mkp-inline-actions"><button mkp-changeFont="true">フォント変更</button><button mkp-saveDefaltPatch="true">保存</button></div>`,
+      `    <label><span>フォント名</span><input name="fontName" type="text" placeholder="ゴシック" value="${setting.customFontName ? setting.customFontName : ""}"></label>`,
+      `    <label><span>フォントCSS</span><textarea name="fontCss" class="mkp-code" spellcheck="false">${setting.customFontCss ? setting.customFontCss : ""}</textarea></label>`,
+      `    <label><span>フォントRaw</span><textarea name="fontRaw" class="mkp-code" spellcheck="false">${setting.customFontRaw ? setting.customFontRaw : ""}</textarea></label>`,
+      `    <div class="mkp-inline-actions"><button mkp-saveDefaltPatch="true">保存</button></div>`,
       '  </div>',
       '</section>',
     ].join('');
+
+    // const fontRaw = document.getElementsByName("fontRaw")[0]
+    // const fontName = document.getElementsByName("fontName")[0]
+    // const fontCss = document.getElementsByName("fontCss")[0]
 
     function close() {
       root.remove();
     }
 
+    const observer = new MutationObserver((mutations, obs) => {
+        const fontRaw = document.getElementsByName("fontRaw")[0]
+        const fontName = document.getElementsByName("fontName")[0]
+        const fontCss = document.getElementsByName("fontCss")[0]
+
+        if (fontName && fontCss && fontRaw) {
+            obs.disconnect();
+
+            fontName.addEventListener('change', (fontNameElement) => {
+                fontRaw.value = `${fontCss.value}
+
+body {
+    font-family: "${fontNameElement.target.value}", sans-serif;
+    font-style: normal;
+}
+`
+            })
+
+            fontCss.addEventListener('change', (fontCssElement) => {
+                fontRaw.value = `${fontCssElement.target.value}
+
+body {
+    font-family: "${fontName.value}", sans-serif;
+    font-style: normal;
+}
+`
+            })
+        }
+    });
+
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true
+    });
+
     root.addEventListener('click', (event) => {
         const target = event.target instanceof Element ? event.target : null;
         if (target?.closest('[data-mkp-close="true"]')) close();
 
-        if (target?.closest('[mkp-changeFont="true"]')) {
-            close();
-            openFontReplacerWindow();
-            return
-        }
-
         if (target?.closest('[mkp-saveDefaltPatch="true"]')) {
             const saveData = {}
 
-            patchs.forEach(async (patch) => {
-                const className = `mkp-` + patch.patchId
-                const element = document.getElementsByClassName(className)[0]
-                saveData[patch.patchId] = element.checked
-            });
+            const fontRaw = document.getElementsByName("fontRaw")[0]
+            const fontName = document.getElementsByName("fontName")[0]
+            const fontCss = document.getElementsByName("fontCss")[0]
 
+            if (!fontName.value || !fontCss.value || !fontRaw.value) {
+                alert("フォント名とCSSを入力する必要があります。")
+                return
+            }
+
+            saveData["customFontRaw"] = fontRaw.value
+            saveData["customFontName"] = fontName.value
+            saveData["customFontCss"] = fontCss.value
+            
             setCurrentInstanceSettings(saveData, (callback) => {
                 console.log("保存しました。")
             })
+
+            if (saveData.customFontRaw) {
+                installStyle('mkp-custom-font', saveData.customFontRaw);
+            }
         }
     });
 

@@ -38,6 +38,11 @@ export async function main() {
   });
 
   installStyle('mkp-custom-style', settings.customCss);
+
+  if (settings.customFontRaw) {
+    installStyle('mkp-custom-font', settings.customFontRaw);
+  }
+
   installRouteHooks();
   observeApp();
   injectSettingsMenuItem();
