@@ -100,7 +100,7 @@ export async function openFontReplacerWindow() {
       `    <label><span>フォント名</span><input name="fontName" type="text" placeholder="ゴシック" value="${setting.customFontName ? setting.customFontName : ""}"></label>`,
       `    <label><span>フォントCSS</span><textarea name="fontCss" class="mkp-code" spellcheck="false">${setting.customFontCss ? setting.customFontCss : ""}</textarea></label>`,
       `    <label><span>フォントRaw</span><textarea name="fontRaw" class="mkp-code" spellcheck="false">${setting.customFontRaw ? setting.customFontRaw : ""}</textarea></label>`,
-      `    <div class="mkp-inline-actions"><button mkp-saveDefaltPatch="true">保存</button></div>`,
+      `    <div class="mkp-inline-actions"><button mkp-resetFont="true">リセット</button><button mkp-saveDefaltPatch="true">保存</button></div>`,
       '  </div>',
       '</section>',
     ].join('');
@@ -175,6 +175,27 @@ body {
             if (saveData.customFontRaw) {
                 installStyle('mkp-custom-font', saveData.customFontRaw);
             }
+        }
+
+        if (target.closest('[mkp-resetFont="true"]')) {
+            const fontRaw = document.getElementsByName("fontRaw")[0]
+            const fontName = document.getElementsByName("fontName")[0]
+            const fontCss = document.getElementsByName("fontCss")[0]
+            fontRaw.value = ""
+            fontName.value = ""
+            fontCss.value = ""
+
+            const saveData = {}
+            saveData["customFontRaw"] = fontRaw.value
+            saveData["customFontName"] = fontName.value
+            saveData["customFontCss"] = fontCss.value
+
+            setCurrentInstanceSettings(saveData, (callback) => {
+                console.log("保存しました。")
+            })
+
+            alert("リセットしました。\nページをリロードします。");
+            location.reload();
         }
     });
 
