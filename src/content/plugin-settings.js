@@ -27,7 +27,7 @@ export async function openPluginSettings() {
     '      <button type="button" data-mkp-remove-plugin="true">削除</button>',
     '    </div>',
     '    <input class="mkp-visually-hidden" name="pluginFile" type="file" accept=".js,text/javascript,application/javascript">',
-    '    <label><span>プラグイン一覧</span><select name="pluginList" size="6"></select></label>',
+    '    <label><span>プラグイン一覧</span><select class="pluginSelect" name="pluginList" size="6"></select></label>',
     '    <label class="mkp-check"><input name="pluginEnabled" type="checkbox"> <span>このプラグインを有効にする</span></label>',
     '    <label><span>プラグイン名</span><input name="pluginName" type="text" placeholder="タイムライン調整"></label>',
     '    <label><span>JavaScript</span><textarea name="pluginCode" class="mkp-code" spellcheck="false"></textarea></label>',

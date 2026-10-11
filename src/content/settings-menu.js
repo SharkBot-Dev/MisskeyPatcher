@@ -7,6 +7,7 @@ import { emitPluginSettingsEvent } from './bridge.js';
 // 設定画面
 import { openDefaultPrivacyPatchWindow } from '../window/privacyPatch.js';
 import { openDefaultOtherPatchWindow } from '../window/otherPatch.js';
+import { openDefaultFunPatchWindow } from '../window/funPatch.js';
 
 const buttons = [
   {
@@ -20,7 +21,7 @@ const buttons = [
   },
   {
     name: 'プラグイン設定',
-    icon: 'ti ti-settings-2 ti-fw',
+    icon: 'ti ti-plug ti-fw',
     onClick: (event) => {
       event.preventDefault();
       event.stopPropagation();
@@ -32,7 +33,7 @@ const buttons = [
   },
   {
     name: 'プライバシー機能',
-    icon: 'ti ti-settings-2 ti-fw',
+    icon: 'ti ti-lock-open ti-fw',
     onClick: async (event) => {
       event.preventDefault();
       event.stopPropagation();
@@ -40,8 +41,17 @@ const buttons = [
     },
   },
   {
+    name: '楽しい機能設定',
+    icon: 'ti ti-device-gamepad ti-fw',
+    onClick: (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      openDefaultFunPatchWindow();
+    },
+  },
+  {
     name: 'その他の機能',
-    icon: 'ti ti-settings-2 ti-fw',
+    icon: 'ti ti-dots ti-fw',
     onClick: async (event) => {
       event.preventDefault();
       event.stopPropagation();

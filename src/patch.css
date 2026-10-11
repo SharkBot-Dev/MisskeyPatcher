@@ -219,7 +219,7 @@
   padding: 0 10px;
 }
 
-.mkp-inline-form select {
+.mkp-inline-form .pluginSelect {
   min-height: 132px;
   padding: 6px;
 }
