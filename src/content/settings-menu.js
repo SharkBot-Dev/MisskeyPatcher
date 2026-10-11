@@ -41,7 +41,7 @@ const buttons = [
     },
   },
   {
-    name: '楽しい機能設定',
+    name: '楽しい機能',
     icon: 'ti ti-device-gamepad ti-fw',
     onClick: (event) => {
       event.preventDefault();
