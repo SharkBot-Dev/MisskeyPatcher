@@ -117,7 +117,7 @@ async function refresh() {
   options = normalizeReversiSettings(settings.autoReversi);
   const user = account(), target = gameId();
   if (!settings.enabled || !hostIsAllowed(settings.allowedHosts) || !options.enabled || !target || !user?.id || !user?.token) return;
-  session = { gameId: target, userId: user.id, token: user.token, channelId: `mkp-reversi-${crypto.randomUUID()}` };
+  session = { gameId: target, userId: user.id, token: user.token, channelId: crypto.randomUUID() };
   controller = new AbortController();
   const url = new URL('/streaming', location.origin);
   url.protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
