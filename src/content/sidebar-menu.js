@@ -16,11 +16,20 @@ function createMenuButton(item, eventName, dataVName) {
   icon.className = 'icon';
   const iconGlyph = document.createElement('i');
   iconGlyph.className = item.icon;
+
+  if (dataVName) {
+    iconGlyph.setAttribute(dataVName, "")
+  }
+
   icon.append(iconGlyph);
 
   const text = document.createElement('span');
   text.className = 'text';
   text.textContent = item.name;
+
+  if (dataVName) {
+    text.setAttribute(dataVName, "")
+  }
 
   button.append(icon, text);
   if (dataVName) button.setAttribute(dataVName, '');
