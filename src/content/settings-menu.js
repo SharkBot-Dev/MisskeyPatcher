@@ -109,6 +109,10 @@ function createSettingsRow(dataVName) {
 
     const icon = document.createElement('span');
     icon.className = 'icon';
+    if (dataVName) {
+      icon.setAttribute(dataVName, "")
+    }
+
     const iconGlyph = document.createElement('i');
     iconGlyph.className = value.icon;
     icon.append(iconGlyph);
