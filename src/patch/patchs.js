@@ -2,6 +2,8 @@ import hiddenUserName from "./hiddenUsername.js"
 import userChan from "./userChan.js"
 import autoReversi from './autoReversi.js';
 
+// import { filters } from "../filter/filter.js"
+
 export let routeChangeExecute = [];
 export let startUpExecute = [];
 
