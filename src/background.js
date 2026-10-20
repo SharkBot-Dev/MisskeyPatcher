@@ -294,10 +294,12 @@ function buildUserScriptCode(userCode, pluginName, extensionVersion) {
       pointerEvents: 'auto',
     });
     container.append(node);
-    setTimeout(() => {
-      node.remove();
-      if (container.childElementCount === 0) container.remove();
-    }, options.timeout ?? 3000);
+    if (!options.noTimeout) {
+      setTimeout(() => {
+        node.remove();
+        if (container.childElementCount === 0) container.remove();
+      }, options.timeout ?? 3000);
+    }
     return node;
   }
 
