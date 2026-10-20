@@ -44,7 +44,7 @@ api.rerunSoon(() => api.markNotes(), 300);
 - `api.observe(selector, callback, { existing, once })`: 追加された要素を監視
 - `api.on(selector, eventName, handler)`: 委譲イベントを登録
 - `api.installStyle(css, id)` / `api.removeStyle(id)`: CSS の追加・削除
-- `api.toast(message, { timeout })`: 簡易通知を表示
+- `api.toast(message, { timeout, html, noTimeout })`: 簡易通知を表示
 - `api.registerSettingsItem(definition, callback)` / `api.addSettingsItem(...)`: Misskey の設定メニューに項目を追加
 - `api.registerSidebarMoreItem(definition, callback)` / `api.addSidebarMoreItem(...)`: サイドバーの「もっと！」メニューに項目を追加
 - `api.registerSlashCommand(definition, callback)` / `api.addSlashCommand(...)`: ノート作成画面で `/` から使える候補を追加
