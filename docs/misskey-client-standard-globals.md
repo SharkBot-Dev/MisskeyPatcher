@@ -1,5 +1,7 @@
 # Misskey クライアント標準変数・関数メモ
 
+> Misskey の標準関数をプラグインから使いたい場合は、まず「ページの `window` に公開されている関数」か「Misskey source 内部だけの関数」かを確認してください。source に export されているだけでは `api.client.call()` から呼び出せません。
+
 この文書は、Misskey のビルド済み frontend client に標準で含まれる変数・関数のうち、MisskeyPatcher のプラグインから参照候補になりやすいものをまとめたものです。
 
 対象は Misskey 本体の標準クライアントです。Misskey の AiScript プラグイン、MisskeyPatcher の `api`、各種ユーザースクリプトが追加した値は含めません。
@@ -224,6 +226,77 @@ stream.channel('main', {}, message => {
   console.log(message);
 });
 ```
+
+## 標準関数を呼び出すサンプル
+
+`api.client.call(path, args)` はページの `window` から辿れる関数を呼びます。関数名を知っているだけでは足りず、実行時にその path が存在し、関数であることが必要です。まず `has()` で確認し、必要なら `get()` で値を調べてから呼びます。
+
+```js
+// 呼び出し対象の関数が window.confirm として公開されている場合
+if (await api.client.has('confirm')) {
+  const accepted = await api.client.call('confirm', ['この操作を実行しますか？']);
+  if (accepted) api.toast('確認されました');
+}
+```
+
+`window.confirm` はブラウザー標準関数の例です。Misskey 独自の関数でも、実際に `window` 上に公開されていれば同じ形で呼べます。たとえば調査で `window.someNamespace.refresh` が callable と確認できた場合:
+
+```js
+const path = 'someNamespace.refresh';
+if (await api.client.has(path)) {
+  const result = await api.client.call(path, []);
+  console.log(result);
+}
+```
+
+`call()` は同期値と Promise の両方を待ちます。戻り値は bridge で JSON 化されるため、Vue component、DOM node、関数、循環参照を含む object はそのまま取得できません。`this` は path の親 object に束縛されます。呼び出しによる画面状態の更新や副作用は通常どおり発生します。
+
+Misskey クライアントで使われている標準機能に似た処理をプラグインから行う場合は、内部 export を直接呼ぶより、公開済みの Patcher API を使う方が安定します。例として Streaming は `useStream()` を探して無理に参照せず、次のように既存接続を再利用できます。
+
+```js
+const stream = await api.reuseMisskeyStream();
+stream.channel('localTimeline', {}, message => {
+  api.toast(message.text ?? '新しい投稿');
+});
+```
+
+また、サーバー操作は frontend の内部関数ではなく Misskey API を使います。
+
+```js
+const meta = await api.misskeyApi('meta', {});
+console.log(meta.name, meta.version);
+```
+
+## 関数を探す手順
+
+1. 対象インスタンスの Misskey の正確な version / commit を確認します。fork は Misskey 本家と別実装・別 version の場合があります。
+2. その version のソースで機能名や画面に表示される文言を検索します。frontend の実装場所を見つけたら、関数定義、呼び出し元、引数、戻り値、権限条件を読みます。
+3. export の有無だけで公開 API と判断せず、`window.foo` への代入、`globalThis` への登録、または HTML / DOM / storage を介した公開を確認します。
+4. 対象ページの DevTools Console で `typeof window.foo` や `Object.keys(window)` を確認します。プラグインでは `api.client.has('foo')` と `api.client.keys('window')` でも確認できます。
+5. `window` に存在する場合だけ `api.client.call('foo', [...])` を試します。まず開発用アカウント・検証環境で引数と副作用を確かめてください。
+
+ソース検索の例（Misskey checkout のルートで実行）:
+
+```sh
+rg -n "表示文言|候補の関数名" packages/frontend packages/frontend-shared
+rg -n "window\\.|globalThis\\.|defineProperty" packages/frontend packages/frontend-shared
+```
+
+DevTools Sources の production bundle から探す場合は、検索結果の minify 済みコードだけで判断せず、可能なら同じ version の source map / ソースを照合します。Vite の module export や `const` / `function` 宣言は module 内に閉じていれば `window` の property ではありません。そうした関数は `api.client.call()` の対象外です。
+
+## 他の Misskey インスタンスへ応用する
+
+プラグインは原則として `api.*` の公開 API と標準 DOM/API を使えば、別の Misskey インスタンスでも動きます。インスタンスごとに異なる情報は固定値にせず、`api.url` / `api.path`、`api.misskeyApi('meta', {})`、DOM の `#misskey_meta` などから取得してください。特定ホストだけへ適用する場合は Options の対象ホスト設定を使います。
+
+Misskey 本家と fork / 改造 instance の間でクライアント内部関数を使い回す場合は、各 instance で以下を確認します。
+
+- Misskey 本体の version と fork 固有変更
+- 対象関数が `window` に公開されているか（内部 module export のままでは呼べません）
+- 関数の引数、戻り値、認証・権限条件、画面状態への副作用
+- API endpoint / Streaming channel の対応状況と、未対応時のエラー
+- 開発者ツールでの確認結果と、ログイン / 未ログインの両方での挙動
+
+存在しない関数や API を前提にせず、機能検出して代替動作を用意します。対象 host/version を限定するか、対応する instance ごとに小さな adapter を用意すると更新時に追従しやすくなります。`localStorage` の内部 key や Vue / router / store の module 構造へ依存する方法は、別 instance や更新後に壊れやすいため最後の手段にしてください。
 
 ## 注意点
 
