@@ -1,4 +1,5 @@
 import { openFontReplacerWindow } from "./fontReplacer.js"
+import { openDebugPatchWindow } from "./debugPatch.js"
 
 const patchs = [
     {
@@ -113,7 +114,7 @@ export async function openDefaultOtherPatchWindow() {
       '  </header>',
       '  <div style="padding: 18px 20px 14px;" class="mkp-inline-form mkp-plugin-form">',
       patchSettingNode.join(` `),
-      `<div class="mkp-inline-actions"><button mkp-changeFont="true">フォント変更</button><button mkp-saveDefaltPatch="true">保存</button></div>`,
+      `<div class="mkp-inline-actions"><button mkp-changeFont="true">フォント変更</button><button mkp-debugPatch="true">実験的な機能</button><button mkp-saveDefaltPatch="true">保存</button></div>`,
       '  </div>',
       '</section>',
     ].join('');
@@ -129,6 +130,12 @@ export async function openDefaultOtherPatchWindow() {
         if (target?.closest('[mkp-changeFont="true"]')) {
             close();
             openFontReplacerWindow();
+            return
+        }
+
+        if (target?.closest('[mkp-debugPatch="true"]')) {
+            close();
+            openDebugPatchWindow();
             return
         }
 
