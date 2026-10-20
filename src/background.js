@@ -274,7 +274,12 @@ function buildUserScriptCode(userCode, pluginName, extensionVersion) {
     }
 
     const node = document.createElement('div');
-    node.textContent = String(message);
+    if (options.html) {
+      node.innerHTML = String(message);
+    } else {
+      node.textContent = String(message);
+    }
+    
     node.dataset.misskeyPatcherToast = 'true';
     Object.assign(node.style, {
       width: 'fit-content',
