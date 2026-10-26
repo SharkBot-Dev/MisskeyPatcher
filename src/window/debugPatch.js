@@ -1,9 +1,4 @@
-const patchs = [
-    {
-        patchName: "ユーザー名非表示 (ユーザー名を非表示にします。配信時などに！)",
-        patchId: "hiddenUserName"
-    }
-];
+const patchs = [];
 
 const INSTANCE_SETTINGS_KEY = 'instanceSettings';
 
