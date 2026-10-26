@@ -1,6 +1,7 @@
 import { getChromeStorage, currentInstanceHost, setCurrentInstanceSettings } from './storage.js';
 import { normalizePlugins, createPlugin, readTextFile, pluginNameFromFileName } from './plugins.js';
 import { fieldValue, syncUserScripts } from './form-utils.js';
+import { createSwitch, createSwitchLabel } from '../components/switch.js';
 
 export async function openPluginSettings() {
   document.getElementById('mkp-inline-settings')?.remove();
@@ -28,7 +29,7 @@ export async function openPluginSettings() {
     '    </div>',
     '    <input class="mkp-visually-hidden" name="pluginFile" type="file" accept=".js,text/javascript,application/javascript">',
     '    <label><span>プラグイン一覧</span><select class="pluginSelect" name="pluginList" size="6"></select></label>',
-    '    <label class="mkp-check"><input name="pluginEnabled" type="checkbox"> <span>このプラグインを有効にする</span></label>',
+    '    <label class="mkp-check mkp-pluginEnabled"></label>',
     '    <label><span>プラグイン名</span><input name="pluginName" type="text" placeholder="タイムライン調整"></label>',
     '    <label><span>JavaScript</span><textarea name="pluginCode" class="mkp-code" spellcheck="false"></textarea></label>',
     '    <div class="mkp-inline-actions">',
@@ -46,6 +47,22 @@ export async function openPluginSettings() {
   function currentPlugin() {
     return plugins[selectedIndex] ?? null;
   }
+
+  let defaultEnabled = currentPlugin()?.enabled
+  // console.log(currentPlugin())
+  const switchMisskey = createSwitch({
+    name: "pluginEnabled",
+    checked: defaultEnabled ? true : false
+  })
+  const label = document.createElement("label");
+
+  const span = createSwitchLabel({
+    label: "このプラグインを有効にする"
+  })
+  switchMisskey.appendChild(span)
+
+  label.appendChild(switchMisskey)
+  root.getElementsByClassName("mkp-pluginEnabled")[0].appendChild(label)
 
   function persistCurrentPlugin() {
     const plugin = currentPlugin();
@@ -74,7 +91,7 @@ export async function openPluginSettings() {
     renderPluginList();
 
     const plugin = currentPlugin();
-    form.elements.namedItem('pluginEnabled').checked = plugin?.enabled ?? false;
+    form.elements.namedItem('pluginEnabled').setValue(plugin?.enabled ?? false);
     form.elements.namedItem('pluginName').value = plugin?.name ?? '';
     form.elements.namedItem('pluginCode').value = plugin?.code ?? '';
   }

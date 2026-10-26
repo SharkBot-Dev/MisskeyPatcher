@@ -1,3 +1,5 @@
+import { createSwitch, createSwitchLabel } from "../components/switch.js";
+
 const patchs = [
     {
         patchName: "ユーザー名非表示 (ユーザー名を非表示にします。配信時などに！)",
@@ -87,17 +89,6 @@ export async function openDefaultPrivacyPatchWindow() {
     document.getElementById('mkp-inline-settings')?.remove();
     const root = document.createElement('div');
     root.id = 'mkp-inline-settings';
-
-    let patchSettingNode = []
-    const setting = await getChromeStorage();
-    // console.log(setting)
-    patchs.forEach(async (patch) => {
-        let checked = false;
-        if (setting[patch.patchId]) {
-            checked = true;
-        }
-        patchSettingNode.push(`<label class="mkp-check"><input name="enabled" type="checkbox" class="mkp-` + patch.patchId + `" ` + (checked ? "checked" : "") + `> <span>` + patch.patchName + `</span></label>`);
-    })
     
     root.innerHTML = [
       '<div class="mkp-inline-backdrop" data-mkp-close="true"></div>',
@@ -110,11 +101,38 @@ export async function openDefaultPrivacyPatchWindow() {
       '    <button class="mkp-icon-button" type="button" data-mkp-close="true" aria-label="閉じる">×</button>',
       '  </header>',
       '  <div style="padding: 18px 20px 14px;" class="mkp-inline-form mkp-plugin-form">',
-      patchSettingNode.join(` `),
-      `<div class="mkp-inline-actions"><button mkp-saveDefaltPatch="true">保存</button></div>`,
       '  </div>',
       '</section>',
     ].join('');
+
+    const setting = await getChromeStorage();
+    // console.log(setting)
+    patchs.forEach(async (patch) => {
+        let checked = false;
+        if (setting[patch.patchId]) {
+            checked = true;
+        }
+        const switchMisskey = createSwitch({
+            addClassName: "mkp-" + patch.patchId,
+            checked: checked
+        })
+        const label = document.createElement("label");
+
+        const span = createSwitchLabel({
+            label: patch.patchName
+        })
+        switchMisskey.appendChild(span)
+
+        label.appendChild(switchMisskey)
+        root.getElementsByClassName("mkp-inline-form")[0].appendChild(label)
+    })
+
+    const div = document.createElement("div");
+    div.className = "mkp-inline-actions"
+
+    div.innerHTML = `<button mkp-saveDefaltPatch="true">保存</button>`
+
+    root.getElementsByClassName("mkp-inline-form")[0].appendChild(div)
 
     function close() {
       root.remove();

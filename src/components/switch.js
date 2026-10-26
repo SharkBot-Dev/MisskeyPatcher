@@ -6,13 +6,19 @@ const className = {
     button: "xbIy7",
     buttonChecked: "xezk7",
     knob: "x3kAx",
-    knobChecked: "xo7KL"
+    knobChecked: "xo7KL",
+    label: "x9TaQ",
+    labelSpan: "xDJmg",
+    labelText: "xekRM"
 };
 
 export function createSwitch(options = {}) {
     let {
         checked = false,
+        defaultChecked = false,
         disabled = false,
+        addClassName = null,
+        name = null,
         onChange = () => {}
     } = options;
 
@@ -26,7 +32,20 @@ export function createSwitch(options = {}) {
     input.type = "checkbox";
     input.className = className.input;
     input.disabled = disabled;
-    input.checked = checked;
+    if (checked) {
+        input.checked = checked;
+    }
+    if (defaultChecked) {
+        input.defaultChecked = defaultChecked;
+    }
+
+    if (addClassName) {
+        input.className += ` ${addClassName}`
+    }
+
+    if (name) {
+        input.name = name;
+    }
 
     const toggleButton = document.createElement("span");
     toggleButton.className = `${className.toggle} ${className.button}`;
@@ -48,7 +67,7 @@ export function createSwitch(options = {}) {
         input.checked = checked;
         input.dispatchEvent(new Event('change'));
         
-        if (checked) {
+        if (!checked) {
             toggleButton.setAttribute("aria-checked", "true");
             toggleButton.className = `${className.toggle} ${className.button}`
 
@@ -79,12 +98,12 @@ export function createSwitch(options = {}) {
     toggleButton.appendChild(knob)
     root.appendChild(toggleButton);
 
-    root.getValue = () => checked;
-    root.setValue = (val) => {
+    input.getValue = () => checked;
+    input.setValue = (val) => {
         if (disabled) return;
         checked = Boolean(val);
         input.checked = checked;
-        if (checked) {
+        if (!checked) {
             toggleButton.setAttribute("aria-checked", "true");
             toggleButton.className = `${className.toggle} ${className.button}`
 
@@ -98,4 +117,33 @@ export function createSwitch(options = {}) {
     };
 
     return root;
+}
+
+export function createSwitchLabel(options = {}) {
+    let {
+        label = "",
+        text = ""
+    } = options;
+
+    const span = document.createElement("span");
+    span.className = `${className.label}`;
+
+    const labelSpan = document.createElement("span");
+    labelSpan.className = `${className.labelSpan}`;
+
+    const labelSpanSpan = document.createElement("span");
+    labelSpanSpan.textContent = label
+
+    labelSpan.appendChild(labelSpanSpan);
+
+    span.appendChild(labelSpan);
+
+    if (text) {
+        const pText = document.createElement("p");
+        pText.className = `${className.labelText}`;
+        pText.textContent = text;
+        span.appendChild(pText);
+    }
+
+    return span; 
 }
