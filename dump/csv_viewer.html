@@ -1,0 +1,945 @@
+<!DOCTYPE html>
+<html lang="ja" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Misskey Css Viewer</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+JP:wght@300;400;500;700&display=swap');
+        body {
+            font-family: 'Inter', 'Noto Sans JP', sans-serif;
+        }
+        .highlight-match {
+            background-color: #fef08a;
+            color: #854d0e;
+            padding: 0 2px;
+            border-radius: 2px;
+            font-weight: 600;
+        }
+        .dark .highlight-match {
+            background-color: #854d0e;
+            color: #fef08a;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.05);
+        }
+        .dark ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 4px;
+        }
+        .dark ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 0, 0, 0.3);
+        }
+        .dark ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 min-h-full flex flex-col transition-colors duration-200">
+
+    <!-- Toast Notification Container -->
+    <div id="toastContainer" class="fixed top-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- Header Navigation -->
+    <header class="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 sticky top-0 z-30 transition-colors duration-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="bg-primary-600 text-white p-2.5 rounded-xl shadow-md">
+                    <i class="fa-solid fa-file-csv text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg leading-tight">CSV Viewer Pro</h1>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">データ解析・検索・可視化ツール</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <!-- Theme Toggle Button -->
+                <button id="themeToggleBtn" title="ダークモード切替" class="p-2.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition">
+                    <i id="themeIcon" class="fa-solid fa-moon text-lg"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col gap-6">
+
+        <!-- Controls & Upload Section -->
+        <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Dropzone / File Loader -->
+            <div class="lg:col-span-2 bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col justify-between transition-colors">
+                <div id="dropZone" class="border-2 border-dashed border-slate-300 dark:border-slate-600 hover:border-primary-500 dark:hover:border-primary-500 rounded-xl p-6 text-center cursor-pointer transition flex flex-col items-center justify-center min-h-[160px] bg-slate-50/50 dark:bg-slate-800/50 hover:bg-primary-50/30 dark:hover:bg-slate-700/30 group">
+                    <input type="file" id="csvFileInput" accept=".csv,.tsv,.txt" class="hidden">
+                    <div class="w-12 h-12 mb-3 rounded-full bg-primary-50 dark:bg-slate-700 text-primary-600 dark:text-primary-400 flex items-center justify-center group-hover:scale-110 transition">
+                        <i class="fa-solid fa-cloud-arrow-up text-xl"></i>
+                    </div>
+                    <p class="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-1">
+                        MisskeyのCSSを読み込んでください: <span class="text-primary-600 dark:text-primary-400 underline ml-1">ファイルを選択</span>
+                    </p>
+                    <p class="text-xs text-slate-400 dark:text-slate-500">.csv, .tsv, .txt 対応（自動区切り文字検知）</p>
+                </div>
+
+                <div class="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm">
+                    <div class="flex items-center gap-2">
+                        <label for="delimiterSelect" class="text-xs font-medium text-slate-500 dark:text-slate-400">区切り文字:</label>
+                        <select id="delimiterSelect" class="bg-slate-100 dark:bg-slate-700 border-none rounded-lg text-xs px-2.5 py-1.5 focus:ring-2 focus:ring-primary-500">
+                            <option value="auto">自動検知</option>
+                            <option value=",">カンマ ( , )</option>
+                            <option value="&#9;">タブ ( \t )</option>
+                            <option value=";">セミコロン ( ; )</option>
+                        </select>
+                    </div>
+
+                    <button id="loadSampleBtn" class="text-xs text-primary-600 dark:text-primary-400 font-medium hover:underline flex items-center gap-1.5">
+                        <i class="fa-solid fa-flask"></i> サンプルデータをロード
+                    </button>
+                </div>
+            </div>
+
+            <!-- CSV Statistics Box -->
+            <div class="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col justify-between">
+                <h2 class="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-chart-pie text-primary-500"></i> データ統計情報
+                </h2>
+
+                <div class="grid grid-cols-2 gap-4 my-auto">
+                    <div class="bg-slate-50 dark:bg-slate-700/50 p-3 rounded-xl">
+                        <span class="text-xs text-slate-400 block mb-1">総行数</span>
+                        <span id="statRows" class="text-2xl font-bold text-slate-800 dark:text-slate-100">0</span>
+                    </div>
+                    <div class="bg-slate-50 dark:bg-slate-700/50 p-3 rounded-xl">
+                        <span class="text-xs text-slate-400 block mb-1">総列数</span>
+                        <span id="statCols" class="text-2xl font-bold text-slate-800 dark:text-slate-100">0</span>
+                    </div>
+                    <div class="bg-slate-50 dark:bg-slate-700/50 p-3 rounded-xl">
+                        <span class="text-xs text-slate-400 block mb-1">絞り込み表示数</span>
+                        <span id="statFiltered" class="text-2xl font-bold text-primary-600 dark:text-primary-400">0</span>
+                    </div>
+                    <div class="bg-slate-50 dark:bg-slate-700/50 p-3 rounded-xl">
+                        <span class="text-xs text-slate-400 block mb-1">推定データサイズ</span>
+                        <span id="statSize" class="text-2xl font-bold text-slate-800 dark:text-slate-100">0 KB</span>
+                    </div>
+                </div>
+
+                <div id="loadedFileName" class="mt-4 text-xs text-slate-400 truncate flex items-center gap-1.5">
+                    <i class="fa-solid fa-file text-slate-300 dark:text-slate-600"></i> <span>ファイル未選択</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Search & Tools Toolbar -->
+        <section class="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
+            <!-- Search Input -->
+            <div class="relative w-full md:w-96">
+                <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+                <input type="text" id="globalSearchInput" placeholder="全カラムから検索..." class="w-full pl-10 pr-10 py-2 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 transition">
+                <button id="clearSearchBtn" class="hidden absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- Export / Column Toggle Buttons -->
+            <div class="flex flex-wrap items-center gap-2.5 w-full md:w-auto justify-end">
+                <!-- Column Visibility Dropdown Button -->
+                <div class="relative">
+                    <button id="columnToggleBtn" class="px-3 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-sm rounded-xl transition flex items-center gap-2">
+                        <i class="fa-solid fa-columns"></i> 表示カラム
+                        <i class="fa-solid fa-chevron-down text-xs"></i>
+                    </button>
+                    <!-- Column Toggle Dropdown Menu -->
+                    <div id="columnDropdown" class="hidden absolute right-0 mt-2 w-56 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl z-40 p-3 max-h-64 overflow-y-auto">
+                        <div class="flex justify-between items-center mb-2 pb-2 border-b border-slate-100 dark:border-slate-700 text-xs font-bold text-slate-500">
+                            <span>表示・非表示切替</span>
+                            <button id="selectAllColsBtn" class="text-primary-600 hover:underline">すべて表示</button>
+                        </div>
+                        <div id="columnCheckboxList" class="space-y-1 text-xs"></div>
+                    </div>
+                </div>
+
+                <!-- Copy Clipboard Button -->
+                <button id="copyTableBtn" class="px-3.5 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-sm rounded-xl transition flex items-center gap-2" title="表示中のデータをクリップボードにコピー">
+                    <i class="fa-regular fa-copy"></i> コピー
+                </button>
+
+                <!-- Export CSV Button -->
+                <button id="exportCsvBtn" class="px-3.5 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-xl shadow-sm transition flex items-center gap-2">
+                    <i class="fa-solid fa-download"></i> CSV書き出し
+                </button>
+            </div>
+        </section>
+
+        <!-- Main Data Table Area -->
+        <section class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden flex flex-col flex-1">
+            <div class="overflow-x-auto overflow-y-auto max-h-[600px] relative flex-1">
+                <table id="csvTable" class="w-full text-left border-collapse text-sm">
+                    <thead class="bg-slate-100/80 dark:bg-slate-700/80 sticky top-0 backdrop-blur-md z-10 text-slate-700 dark:text-slate-200 border-b border-slate-200 dark:border-slate-600">
+                        <tr id="tableHeaderRow">
+                            <th class="p-4 text-center text-slate-400 font-normal w-12">#</th>
+                        </tr>
+                        <!-- Column Specific Filter Row -->
+                        <tr id="tableFilterRow" class="bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700">
+                            <th class="p-2 text-center text-xs text-slate-400">🔍</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody" class="divide-y divide-slate-100 dark:divide-slate-700/50 text-slate-700 dark:text-slate-300">
+                        <tr>
+                            <td colspan="100%" class="py-16 text-center text-slate-400 dark:text-slate-500">
+                                <i class="fa-solid fa-folder-open text-4xl mb-3 block opacity-50"></i>
+                                CSVファイルを読み込んでデータを表示します
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Table Footer & Pagination Controls -->
+            <div class="bg-slate-50 dark:bg-slate-800/90 border-t border-slate-200 dark:border-slate-700 p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div class="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
+                    <label for="pageSizeSelect">表示件数:</label>
+                    <select id="pageSizeSelect" class="bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg px-2 py-1 text-xs focus:ring-2 focus:ring-primary-500">
+                        <option value="10">10件</option>
+                        <option value="25" selected>25件</option>
+                        <option value="50">50件</option>
+                        <option value="100">100件</option>
+                        <option value="all">すべて</option>
+                    </select>
+                    <span id="pageInfoText" class="ml-2">0 件中 0 - 0 件を表示</span>
+                </div>
+
+                <!-- Pagination Buttons -->
+                <div class="flex items-center gap-1" id="paginationControls">
+                    <button id="firstPageBtn" class="p-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 disabled:opacity-30 disabled:hover:bg-transparent" disabled>
+                        <i class="fa-solid fa-angles-left text-xs"></i>
+                    </button>
+                    <button id="prevPageBtn" class="p-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 disabled:opacity-30 disabled:hover:bg-transparent" disabled>
+                        <i class="fa-solid fa-angle-left text-xs"></i>
+                    </button>
+                    <span id="currentPageIndicator" class="px-3 py-1 text-xs font-semibold text-slate-700 dark:text-slate-200">ページ 1 / 1</span>
+                    <button id="nextPageBtn" class="p-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 disabled:opacity-30 disabled:hover:bg-transparent" disabled>
+                        <i class="fa-solid fa-angle-right text-xs"></i>
+                    </button>
+                    <button id="lastPageBtn" class="p-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 disabled:opacity-30 disabled:hover:bg-transparent" disabled>
+                        <i class="fa-solid fa-angles-right text-xs"></i>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 py-4 text-center text-xs text-slate-400 mt-auto transition-colors">
+        <p>&copy; 2026 CSV Viewer Pro. ALL RIGHTS RESERVED.</p>
+    </footer>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        /**
+         * State Management
+         */
+        const state = {
+            rawCSV: '',
+            headers: [],
+            data: [], // Array of objects or arrays
+            filteredData: [],
+            hiddenColumns: new Set(),
+            sortColumn: null,
+            sortDirection: 'asc', // 'asc' or 'desc'
+            currentPage: 1,
+            pageSize: 25,
+            globalSearch: '',
+            columnFilters: {},
+            fileName: '',
+            delimiter: 'auto'
+        };
+
+        // DOM Elements
+        const elements = {
+            dropZone: document.getElementById('dropZone'),
+            fileInput: document.getElementById('csvFileInput'),
+            delimiterSelect: document.getElementById('delimiterSelect'),
+            loadSampleBtn: document.getElementById('loadSampleBtn'),
+            statRows: document.getElementById('statRows'),
+            statCols: document.getElementById('statCols'),
+            statFiltered: document.getElementById('statFiltered'),
+            statSize: document.getElementById('statSize'),
+            loadedFileName: document.getElementById('loadedFileName'),
+            globalSearchInput: document.getElementById('globalSearchInput'),
+            clearSearchBtn: document.getElementById('clearSearchBtn'),
+            tableHeaderRow: document.getElementById('tableHeaderRow'),
+            tableFilterRow: document.getElementById('tableFilterRow'),
+            tableBody: document.getElementById('tableBody'),
+            pageSizeSelect: document.getElementById('pageSizeSelect'),
+            pageInfoText: document.getElementById('pageInfoText'),
+            currentPageIndicator: document.getElementById('currentPageIndicator'),
+            firstPageBtn: document.getElementById('firstPageBtn'),
+            prevPageBtn: document.getElementById('prevPageBtn'),
+            nextPageBtn: document.getElementById('nextPageBtn'),
+            lastPageBtn: document.getElementById('lastPageBtn'),
+            columnToggleBtn: document.getElementById('columnToggleBtn'),
+            columnDropdown: document.getElementById('columnDropdown'),
+            columnCheckboxList: document.getElementById('columnCheckboxList'),
+            selectAllColsBtn: document.getElementById('selectAllColsBtn'),
+            copyTableBtn: document.getElementById('copyTableBtn'),
+            exportCsvBtn: document.getElementById('exportCsvBtn'),
+            themeToggleBtn: document.getElementById('themeToggleBtn'),
+            themeIcon: document.getElementById('themeIcon'),
+            toastContainer: document.getElementById('toastContainer')
+        };
+
+        /**
+         * Initialize App & Event Listeners
+         */
+        function initApp() {
+            // Setup Dark Mode Toggle
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.documentElement.classList.add('dark');
+                elements.themeIcon.className = 'fa-solid fa-sun text-lg';
+            }
+
+            elements.themeToggleBtn.addEventListener('click', () => {
+                const isDark = document.documentElement.classList.toggle('dark');
+                elements.themeIcon.className = isDark ? 'fa-solid fa-sun text-lg' : 'fa-solid fa-moon text-lg';
+            });
+
+            // File Upload Drag & Drop Handlers
+            elements.dropZone.addEventListener('click', () => elements.fileInput.click());
+            elements.fileInput.addEventListener('change', handleFileSelect);
+
+            ['dragenter', 'dragover'].forEach(eventName => {
+                elements.dropZone.addEventListener(eventName, (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    elements.dropZone.classList.add('border-primary-500', 'bg-primary-50/50');
+                }, false);
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                elements.dropZone.addEventListener(eventName, (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    elements.dropZone.classList.remove('border-primary-500', 'bg-primary-50/50');
+                }, false);
+            });
+
+            elements.dropZone.addEventListener('drop', (e) => {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                if (files.length > 0) {
+                    processFile(files[0]);
+                }
+            });
+
+            // Delimiter option change
+            elements.delimiterSelect.addEventListener('change', (e) => {
+                state.delimiter = e.target.value;
+                if (state.rawCSV) {
+                    parseAndRenderCSV(state.rawCSV);
+                }
+            });
+
+            // Sample Data Loading
+            elements.loadSampleBtn.addEventListener('click', loadSampleData);
+
+            // Search Bar Input
+            elements.globalSearchInput.addEventListener('input', (e) => {
+                state.globalSearch = e.target.value;
+                elements.clearSearchBtn.classList.toggle('hidden', !state.globalSearch);
+                applyFilters();
+            });
+
+            elements.clearSearchBtn.addEventListener('click', () => {
+                elements.globalSearchInput.value = '';
+                state.globalSearch = '';
+                elements.clearSearchBtn.classList.add('hidden');
+                applyFilters();
+            });
+
+            // Column Dropdown Toggle
+            elements.columnToggleBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                elements.columnDropdown.classList.toggle('hidden');
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!elements.columnDropdown.contains(e.target) && !elements.columnToggleBtn.contains(e.target)) {
+                    elements.columnDropdown.classList.add('hidden');
+                }
+            });
+
+            elements.selectAllColsBtn.addEventListener('click', () => {
+                state.hiddenColumns.clear();
+                renderColumnDropdown();
+                renderTable();
+            });
+
+            // Pagination Listeners
+            elements.pageSizeSelect.addEventListener('change', (e) => {
+                state.pageSize = e.target.value === 'all' ? 'all' : parseInt(e.target.value, 10);
+                state.currentPage = 1;
+                renderTableBody();
+            });
+
+            elements.firstPageBtn.addEventListener('click', () => { state.currentPage = 1; renderTableBody(); });
+            elements.prevPageBtn.addEventListener('click', () => { if (state.currentPage > 1) { state.currentPage--; renderTableBody(); } });
+            elements.nextPageBtn.addEventListener('click', () => {
+                const maxPage = getMaxPage();
+                if (state.currentPage < maxPage) { state.currentPage++; renderTableBody(); }
+            });
+            elements.lastPageBtn.addEventListener('click', () => { state.currentPage = getMaxPage(); renderTableBody(); });
+
+            // Copy & Export Handlers
+            elements.copyTableBtn.addEventListener('click', copyTableToClipboard);
+            elements.exportCsvBtn.addEventListener('click', exportFilteredCSV);
+
+            // Load initial sample data for immediate visual engagement
+            loadSampleData();
+        }
+
+        /**
+         * Robust CSV Parsing Function
+         * Supports quoted strings, nested commas, line breaks in quotes, escaped quotes ("")
+         */
+        function parseCSV(text, delimiter = 'auto') {
+            if (!text) return { headers: [], data: [] };
+
+            // Delimiter Auto-Detection if set to auto
+            if (delimiter === 'auto') {
+                const firstLine = text.split(/\r\n|\n/)[0] || '';
+                const commaCount = (firstLine.match(/,/g) || []).length;
+                const tabCount = (firstLine.match(/\t/g) || []).length;
+                const semiCount = (firstLine.match(/;/g) || []).length;
+
+                if (tabCount > commaCount && tabCount > semiCount) delimiter = '\t';
+                else if (semiCount > commaCount && semiCount > tabCount) delimiter = ';';
+                else delimiter = ',';
+            }
+
+            const rows = [];
+            let currentRow = [];
+            let currentToken = '';
+            let inQuotes = false;
+
+            for (let i = 0; i < text.length; i++) {
+                const char = text[i];
+                const nextChar = text[i + 1];
+
+                if (inQuotes) {
+                    if (char === '"') {
+                        if (nextChar === '"') {
+                            currentToken += '"';
+                            i++; // Skip next quote
+                        } else {
+                            inQuotes = false;
+                        }
+                    } else {
+                        currentToken += char;
+                    }
+                } else {
+                    if (char === '"') {
+                        inQuotes = true;
+                    } else if (char === delimiter) {
+                        currentRow.push(currentToken.trim());
+                        currentToken = '';
+                    } else if (char === '\r') {
+                        if (nextChar === '\n') {
+                            i++;
+                        }
+                        currentRow.push(currentToken.trim());
+                        rows.push(currentRow);
+                        currentRow = [];
+                        currentToken = '';
+                    } else if (char === '\n') {
+                        currentRow.push(currentToken.trim());
+                        rows.push(currentRow);
+                        currentRow = [];
+                        currentToken = '';
+                    } else {
+                        currentToken += char;
+                    }
+                }
+            }
+
+            if (currentToken || currentRow.length > 0) {
+                currentRow.push(currentToken.trim());
+                rows.push(currentRow);
+            }
+
+            // Filter empty trailing rows
+            const cleanRows = rows.filter(r => r.length > 1 || (r.length === 1 && r[0] !== ''));
+
+            if (cleanRows.length === 0) return { headers: [], data: [] };
+
+            // First row as headers
+            const headers = cleanRows[0].map((h, i) => h || `カラム ${i + 1}`);
+            const data = cleanRows.slice(1);
+
+            return { headers, data };
+        }
+
+        /**
+         * Handle Selected File
+         */
+        function handleFileSelect(e) {
+            const file = e.target.files[0];
+            if (file) {
+                processFile(file);
+            }
+        }
+
+        function processFile(file) {
+            state.fileName = file.name;
+            elements.loadedFileName.innerHTML = `<i class="fa-solid fa-file-csv text-primary-500"></i> <span>${file.name} (${formatBytes(file.size)})</span>`;
+
+            const reader = new FileReader();
+            reader.onload = function (evt) {
+                state.rawCSV = evt.target.result;
+                parseAndRenderCSV(state.rawCSV);
+                showToast('ファイルが正常に読み込まれました', 'success');
+            };
+            reader.onerror = function () {
+                showToast('ファイルの読み込みに失敗しました', 'error');
+            };
+            reader.readAsText(file);
+        }
+
+        /**
+         * Load Sample CSV Data
+         */
+        function loadSampleData() {
+            const sampleData = 
+`path,Name,buildCss
+C:/Users/neko/Desktop/misskey/packages/frontend/src/ui/minimum.vue?vue&type=style&index=0&lang.module.scss,root,xxpSa
+C:/Users/neko/Desktop/misskey/packages/frontend/src/components/MkEmojiPickerDialog.vue?vue&type=style&index=0&lang.module.scss,drawer,xwooH
+C:/Users/neko/Desktop/misskey/packages/frontend/src/components/MkSourceCodeAvailablePopup.vue?vue&type=style&index=0&lang.module.scss,root,xelxx
+C:/Users/neko/Desktop/misskey/packages/frontend/src/components/MkSourceCodeAvailablePopup.vue?vue&type=style&index=0&lang.module.scss,icon,xjbjW
+C:/Users/neko/Desktop/misskey/packages/frontend/src/components/MkSourceCodeAvailablePopup.vue?vue&type=style&index=0&lang.module.scss,icon,xjbjW
+C:/Users/neko/Desktop/misskey/packages/frontend/src/components/MkSourceCodeAvailablePopup.vue?vue&type=style&index=0&lang.module.scss,icon,xjbjW
+C:/Users/neko/Desktop/misskey/packages/frontend/src/components/MkSourceCodeAvailablePopup.vue?vue&type=style&index=0&lang.module.scss,main,x6HQO
+C:/Users/neko/Desktop/misskey/packages/frontend/src/components/MkSourceCodeAvailablePopup.vue?vue&type=style&index=0&lang.module.scss,close,xtgwe
+C:/Users/neko/Desktop/misskey/packages/frontend/src/components/MkSourceCodeAvailablePopup.vue?vue&type=style&index=0&lang.module.scss,title,x9JJN`;
+
+            state.fileName = "sample_data.csv";
+            elements.loadedFileName.innerHTML = `<i class="fa-solid fa-flask text-primary-500"></i> <span>sample_data.csv (サンプル)</span>`;
+            state.rawCSV = sampleData;
+            parseAndRenderCSV(state.rawCSV);
+        }
+
+        /**
+         * Parse Raw String & Trigger Visual Rendering
+         */
+        function parseAndRenderCSV(rawText) {
+            const parsed = parseCSV(rawText, state.delimiter);
+            state.headers = parsed.headers;
+            state.data = parsed.data;
+            state.hiddenColumns.clear();
+            state.sortColumn = null;
+            state.columnFilters = {};
+            state.currentPage = 1;
+
+            updateStats();
+            renderColumnDropdown();
+            renderTableHeader();
+            applyFilters();
+        }
+
+        /**
+         * Update Summary Statistics
+         */
+        function updateStats() {
+            elements.statRows.textContent = state.data.length.toLocaleString();
+            elements.statCols.textContent = state.headers.length.toLocaleString();
+            elements.statFiltered.textContent = state.filteredData.length.toLocaleString();
+            elements.statSize.textContent = formatBytes(new Blob([state.rawCSV]).size);
+        }
+
+        /**
+         * Render Column Dropdown
+         */
+        function renderColumnDropdown() {
+            elements.columnCheckboxList.innerHTML = '';
+            state.headers.forEach((header, index) => {
+                const label = document.createElement('label');
+                label.className = 'flex items-center gap-2 px-1 py-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded cursor-pointer select-none';
+                
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.checked = !state.hiddenColumns.has(index);
+                checkbox.className = 'rounded text-primary-600 focus:ring-primary-500';
+                checkbox.addEventListener('change', () => {
+                    if (checkbox.checked) {
+                        state.hiddenColumns.delete(index);
+                    } else {
+                        state.hiddenColumns.add(index);
+                    }
+                    renderTable();
+                });
+
+                const span = document.createElement('span');
+                span.className = 'truncate text-slate-700 dark:text-slate-300';
+                span.textContent = header;
+
+                label.appendChild(checkbox);
+                label.appendChild(span);
+                elements.columnCheckboxList.appendChild(label);
+            });
+        }
+
+        /**
+         * Render Table Headers & Filter Inputs
+         */
+        function renderTableHeader() {
+            elements.tableHeaderRow.innerHTML = '<th class="p-4 text-center text-slate-400 font-normal w-12 border-b dark:border-slate-700">#</th>';
+            elements.tableFilterRow.innerHTML = '<th class="p-2 text-center text-xs text-slate-400 border-b dark:border-slate-700">🔍</th>';
+
+            state.headers.forEach((header, index) => {
+                if (state.hiddenColumns.has(index)) return;
+
+                // Column Header
+                const th = document.createElement('th');
+                th.className = 'p-3.5 font-semibold text-xs text-slate-600 dark:text-slate-300 uppercase tracking-wider cursor-pointer hover:bg-slate-200/50 dark:hover:bg-slate-600/50 transition select-none border-b dark:border-slate-700';
+                
+                const isSorted = state.sortColumn === index;
+                const sortIcon = isSorted 
+                    ? (state.sortDirection === 'asc' ? '<i class="fa-solid fa-sort-up text-primary-600 ml-1.5"></i>' : '<i class="fa-solid fa-sort-down text-primary-600 ml-1.5"></i>') 
+                    : '<i class="fa-solid fa-sort opacity-30 group-hover:opacity-100 ml-1.5"></i>';
+
+                th.innerHTML = `<div class="flex items-center justify-between group">
+                    <span class="truncate">${escapeHTML(header)}</span>
+                    ${sortIcon}
+                </div>`;
+
+                th.addEventListener('click', () => {
+                    if (state.sortColumn === index) {
+                        state.sortDirection = state.sortDirection === 'asc' ? 'desc' : 'asc';
+                    } else {
+                        state.sortColumn = index;
+                        state.sortDirection = 'asc';
+                    }
+                    applySorting();
+                });
+
+                elements.tableHeaderRow.appendChild(th);
+
+                // Column Search Filter Cell
+                const filterTh = document.createElement('th');
+                filterTh.className = 'p-2 border-b dark:border-slate-700';
+                
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.placeholder = `絞り込み...`;
+                input.value = state.columnFilters[index] || '';
+                input.className = 'w-full px-2 py-1 text-xs bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded focus:outline-none focus:ring-1 focus:ring-primary-500 font-normal';
+                
+                input.addEventListener('input', (e) => {
+                    state.columnFilters[index] = e.target.value.toLowerCase();
+                    applyFilters();
+                });
+
+                filterTh.appendChild(input);
+                elements.tableFilterRow.appendChild(filterTh);
+            });
+        }
+
+        /**
+         * Filtering Logic
+         */
+        function applyFilters() {
+            const query = state.globalSearch.toLowerCase().trim();
+
+            state.filteredData = state.data.filter(row => {
+                // 1. Global Search Filter
+                if (query) {
+                    const matchesGlobal = row.some(cell => String(cell).toLowerCase().includes(query));
+                    if (!matchesGlobal) return false;
+                }
+
+                // 2. Column Specific Filters
+                for (const [colIdx, filterVal] of Object.entries(state.columnFilters)) {
+                    if (filterVal) {
+                        const cellVal = String(row[colIdx] || '').toLowerCase();
+                        if (!cellVal.includes(filterVal)) return false;
+                    }
+                }
+
+                return true;
+            });
+
+            state.currentPage = 1;
+            applySorting();
+        }
+
+        /**
+         * Sorting Logic
+         */
+        function applySorting() {
+            if (state.sortColumn !== null) {
+                const col = state.sortColumn;
+                const dir = state.sortDirection === 'asc' ? 1 : -1;
+
+                state.filteredData.sort((a, b) => {
+                    let valA = a[col] || '';
+                    let valB = b[col] || '';
+
+                    // Numerical Sort fallback
+                    const numA = parseFloat(valA.replace(/[^0-9.-]+/g, ""));
+                    const numB = parseFloat(valB.replace(/[^0-9.-]+/g, ""));
+
+                    if (!isNaN(numA) && !isNaN(numB) && String(numA) === valA.trim() && String(numB) === valB.trim()) {
+                        return (numA - numB) * dir;
+                    }
+
+                    return valA.localeCompare(valB, 'ja', { numeric: true }) * dir;
+                });
+            }
+
+            renderTableHeader();
+            renderTableBody();
+            updateStats();
+        }
+
+        /**
+         * Render Main Table Body with Pagination
+         */
+        function renderTableBody() {
+            elements.tableBody.innerHTML = '';
+
+            if (state.filteredData.length === 0) {
+                elements.tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="100%" class="py-12 text-center text-slate-400">
+                            <i class="fa-solid fa-magnifying-glass text-3xl mb-2 block opacity-40"></i>
+                            該当するデータが見つかりませんでした
+                        </td>
+                    </tr>`;
+                updatePaginationControls(0, 0, 0);
+                return;
+            }
+
+            const totalRows = state.filteredData.length;
+            const pageSize = state.pageSize === 'all' ? totalRows : state.pageSize;
+            const startIdx = (state.currentPage - 1) * pageSize;
+            const endIdx = Math.min(startIdx + pageSize, totalRows);
+
+            const visibleRows = state.filteredData.slice(startIdx, endIdx);
+
+            visibleRows.forEach((row, rowIdx) => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-50 dark:hover:bg-slate-700/40 transition-colors';
+
+                // Row Number Cell
+                const rowNumTd = document.createElement('td');
+                rowNumTd.className = 'p-3 text-center text-xs text-slate-400 font-mono select-none border-b dark:border-slate-700/50';
+                rowNumTd.textContent = startIdx + rowIdx + 1;
+                tr.appendChild(rowNumTd);
+
+                row.forEach((cellValue, colIdx) => {
+                    if (state.hiddenColumns.has(colIdx)) return;
+
+                    const td = document.createElement('td');
+                    td.className = 'p-3 border-b dark:border-slate-700/50 text-sm break-words max-w-xs';
+                    
+                    // Highlight Matched Query Text
+                    td.innerHTML = highlightText(escapeHTML(cellValue || ''), state.globalSearch);
+                    tr.appendChild(td);
+                });
+
+                elements.tableBody.appendChild(tr);
+            });
+
+            updatePaginationControls(startIdx + 1, endIdx, totalRows);
+        }
+
+        /**
+         * Pagination UI Controls Updater
+         */
+        function updatePaginationControls(start, end, total) {
+            elements.pageInfoText.textContent = total > 0 
+                ? `${total.toLocaleString()} 件中 ${start.toLocaleString()} - ${end.toLocaleString()} 件を表示`
+                : '0 件を表示';
+
+            const maxPage = getMaxPage();
+            elements.currentPageIndicator.textContent = `ページ ${state.currentPage} / ${maxPage || 1}`;
+
+            elements.firstPageBtn.disabled = state.currentPage <= 1;
+            elements.prevPageBtn.disabled = state.currentPage <= 1;
+            elements.nextPageBtn.disabled = state.currentPage >= maxPage;
+            elements.lastPageBtn.disabled = state.currentPage >= maxPage;
+        }
+
+        function getMaxPage() {
+            if (state.pageSize === 'all') return 1;
+            return Math.ceil(state.filteredData.length / state.pageSize) || 1;
+        }
+
+        /**
+         * Utility Functions
+         */
+        function renderTable() {
+            renderTableHeader();
+            renderTableBody();
+        }
+
+        function highlightText(text, query) {
+            if (!query) return text;
+            const regex = new RegExp(`(${escapeRegExp(query)})`, 'gi');
+            return text.replace(regex, '<mark class="highlight-match">$1</mark>');
+        }
+
+        function escapeRegExp(string) {
+            return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        }
+
+        function escapeHTML(str) {
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function formatBytes(bytes, decimals = 2) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const dm = decimals < 0 ? 0 : decimals;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+        }
+
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            const bgClass = type === 'success' ? 'bg-emerald-600' : type === 'error' ? 'bg-rose-600' : 'bg-slate-800';
+            
+            toast.className = `${bgClass} text-white text-sm px-4 py-3 rounded-xl shadow-lg pointer-events-auto flex items-center gap-2 animate-bounce transition-all duration-300`;
+            toast.innerHTML = `
+                <i class="fa-solid ${type === 'success' ? 'fa-circle-check' : 'fa-circle-info'}"></i>
+                <span>${message}</span>
+            `;
+
+            elements.toastContainer.appendChild(toast);
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        /**
+         * Copy Data to Clipboard
+         */
+        function copyTableToClipboard() {
+            if (state.filteredData.length === 0) {
+                showToast('コピーするデータがありません', 'error');
+                return;
+            }
+
+            const visibleHeaderIndices = state.headers
+                .map((_, idx) => idx)
+                .filter(idx => !state.hiddenColumns.has(idx));
+
+            const headerRow = visibleHeaderIndices.map(idx => state.headers[idx]).join('\t');
+            const dataRows = state.filteredData.map(row => 
+                visibleHeaderIndices.map(idx => row[idx] || '').join('\t')
+            ).join('\n');
+
+            const fullText = `${headerRow}\n${dataRows}`;
+
+            const textarea = document.createElement('textarea');
+            textarea.value = fullText;
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            textarea.select();
+
+            try {
+                document.execCommand('copy');
+                showToast('テーブルデータをクリップボードにコピーしました', 'success');
+            } catch (err) {
+                showToast('コピーに失敗しました', 'error');
+            } finally {
+                document.body.removeChild(textarea);
+            }
+        }
+
+        /**
+         * Export Filtered Data to CSV
+         */
+        function exportFilteredCSV() {
+            if (state.filteredData.length === 0) {
+                showToast('書き出すデータがありません', 'error');
+                return;
+            }
+
+            const visibleHeaderIndices = state.headers
+                .map((_, idx) => idx)
+                .filter(idx => !state.hiddenColumns.has(idx));
+
+            const formatCell = (val) => {
+                const str = String(val || '');
+                if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+                    return `"${str.replace(/"/g, '""')}"`;
+                }
+                return str;
+            };
+
+            const headerRow = visibleHeaderIndices.map(idx => formatCell(state.headers[idx])).join(',');
+            const dataRows = state.filteredData.map(row => 
+                visibleHeaderIndices.map(idx => formatCell(row[idx])).join(',')
+            ).join('\r\n');
+
+            const csvContent = "\uFEFF" + `${headerRow}\r\n${dataRows}`; // UTF-8 BOM
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `exported_${state.fileName || 'data.csv'}`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            showToast('CSVファイルを書き出しました', 'success');
+        }
+
+        // Initialize application on page load
+        window.onload = initApp;
+    </script>
+</body>
+</html>
