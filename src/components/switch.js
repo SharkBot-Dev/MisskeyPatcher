@@ -1,16 +1,11 @@
-const className = {
-    root: "x1kPZ",
-    toggle: "xEZjz",
-    disabled: "xqcs3",
-    input: "x6eY1",
-    button: "xbIy7",
-    buttonChecked: "xezk7",
-    knob: "x3kAx",
-    knobChecked: "xo7KL",
-    label: "x9TaQ",
-    labelSpan: "xDJmg",
-    labelText: "xekRM"
-};
+import { getClassName } from "../className/default.js";
+
+// Keep the switch's Misskey class names in className/default.js so the
+// class name manager and the component always use the same defaults.
+const className = Object.fromEntries([
+    "root", "toggle", "disabled", "input", "button", "buttonChecked",
+    "knob", "knobChecked", "label", "labelSpan", "labelText"
+].map((key) => [key, () => getClassName(`switch.${key}`)]));
 
 export function createSwitch(options = {}) {
     let {
@@ -23,14 +18,14 @@ export function createSwitch(options = {}) {
     } = options;
 
     const root = document.createElement("div");
-    root.className = className.root;
+    root.className = className.root();
     if (disabled) {
-        root.classList.add(className.disabled);
+        root.classList.add(className.disabled());
     }
 
     const input = document.createElement("input");
     input.type = "checkbox";
-    input.className = className.input;
+    input.className = className.input();
     input.disabled = disabled;
     if (checked) {
         input.checked = checked;
@@ -48,16 +43,16 @@ export function createSwitch(options = {}) {
     }
 
     const toggleButton = document.createElement("span");
-    toggleButton.className = `${className.toggle} ${className.button}`;
+    toggleButton.className = `${className.toggle()} ${className.button()}`;
     if (checked) {
-        toggleButton.className = `${className.toggle} ${className.button} ${className.buttonChecked}`
+        toggleButton.className = `${className.toggle()} ${className.button()} ${className.buttonChecked()}`
         toggleButton.setAttribute("aria-checked", "true");
     }
 
     const knob = document.createElement("div");
-    knob.className = `${className.knob}`;
+    knob.className = `${className.knob()}`;
     if (checked) {
-        knob.className = `${className.knob} ${className.knobChecked}`;
+        knob.className = `${className.knob()} ${className.knobChecked()}`;
     }
 
     const toggle = () => {
@@ -69,14 +64,14 @@ export function createSwitch(options = {}) {
         
         if (!checked) {
             toggleButton.setAttribute("aria-checked", "true");
-            toggleButton.className = `${className.toggle} ${className.button}`
+            toggleButton.className = `${className.toggle()} ${className.button()}`
 
-            knob.className = `${className.knob}`;
+            knob.className = `${className.knob()}`;
         } else {
             toggleButton.removeAttribute("aria-checked");
-            toggleButton.className = `${className.toggle} ${className.button} ${className.buttonChecked}`
+            toggleButton.className = `${className.toggle()} ${className.button()} ${className.buttonChecked()}`
 
-            knob.className = `${className.knob} ${className.knobChecked}`;
+            knob.className = `${className.knob()} ${className.knobChecked()}`;
         }
 
         onChange(checked);
@@ -105,14 +100,14 @@ export function createSwitch(options = {}) {
         input.checked = checked;
         if (!checked) {
             toggleButton.setAttribute("aria-checked", "true");
-            toggleButton.className = `${className.toggle} ${className.button}`
+            toggleButton.className = `${className.toggle()} ${className.button()}`
 
-            knob.className = `${className.knob}`;
+            knob.className = `${className.knob()}`;
         } else {
             toggleButton.removeAttribute("aria-checked");
-            toggleButton.className = `${className.toggle} ${className.button} ${className.buttonChecked}`
+            toggleButton.className = `${className.toggle()} ${className.button()} ${className.buttonChecked()}`
 
-            knob.className = `${className.knob} ${className.knobChecked}`;
+            knob.className = `${className.knob()} ${className.knobChecked()}`;
         }
     };
 
@@ -126,10 +121,10 @@ export function createSwitchLabel(options = {}) {
     } = options;
 
     const span = document.createElement("span");
-    span.className = `${className.label}`;
+    span.className = `${className.label()}`;
 
     const labelSpan = document.createElement("span");
-    labelSpan.className = `${className.labelSpan}`;
+    labelSpan.className = `${className.labelSpan()}`;
 
     const labelSpanSpan = document.createElement("span");
     labelSpanSpan.textContent = label
@@ -140,7 +135,7 @@ export function createSwitchLabel(options = {}) {
 
     if (text) {
         const pText = document.createElement("p");
-        pText.className = `${className.labelText}`;
+        pText.className = `${className.labelText()}`;
         pText.textContent = text;
         span.appendChild(pText);
     }

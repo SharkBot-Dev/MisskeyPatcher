@@ -58,6 +58,24 @@ api.rerunSoon(() => api.markNotes(), 300);
 - `api.client.call(path, args)` / `api.callClientFunction(path, args)`: ページ本体の関数を呼び出し
 - `api.client.has(path)` / `api.client.keys(path)`: ページ本体の変数存在確認 / key 一覧
 - `api.store.get(key)` / `api.store.set(key, value)` / `api.store.remove(key)`: プラグイン名ごとの localStorage 保存
+- `api.getClassName(path)`: クラス名管理の上書きを優先して、`switch.root` のようなキーからクラス名を取得
+- `api.addClassName(element, className)`: 要素に任意のクラス名を追加
+- `api.addManagedClassName(element, path)`: クラス名管理に登録されたクラス名を要素に追加
+- `api.components.createSwitch(options)` / `api.components.switch(options)`: `src/components/switch.js` のスイッチを作成
+- `api.components.createSwitchLabel(options)` / `api.components.switchLabel(options)`: スイッチ用ラベルを作成
+- `api.addComponent(name, options)` / `api.components.add(name, options)`: `switch` または `switchLabel` コンポーネントを作成
+
+```js
+const toggle = api.addComponent('switch', {
+  checked: true,
+  onChange: (checked) => api.toast(`切り替え: ${checked}`),
+});
+document.body.append(toggle);
+
+const input = toggle.querySelector('input');
+api.addClassName(input, 'my-plugin-toggle');
+console.log(api.getClassName('switch.root'));
+```
 
 例:
 

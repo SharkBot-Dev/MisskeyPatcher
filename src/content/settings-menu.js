@@ -3,6 +3,8 @@ import { openPluginSettings } from './plugin-settings.js';
 import { openReadyModal } from './help-modals.js';
 import { state } from './state.js';
 import { emitPluginSettingsEvent } from './bridge.js';
+import { openClassNameManager } from './class-name-manager.js';
+import { getClassName } from '../className/default.js';
 
 // 設定画面
 import { openDefaultPrivacyPatchWindow } from '../window/privacyPatch.js';
@@ -12,7 +14,7 @@ import { openDefaultFunPatchWindow } from '../window/funPatch.js';
 const buttons = [
   {
     name: '基本設定',
-    icon: 'ti ti-settings-2 ti-fw',
+    icon: 'icons.settings',
     onClick: (event) => {
       event.preventDefault();
       event.stopPropagation();
@@ -21,7 +23,7 @@ const buttons = [
   },
   {
     name: 'プラグイン設定',
-    icon: 'ti ti-plug ti-fw',
+    icon: 'icons.plugin',
     onClick: (event) => {
       event.preventDefault();
       event.stopPropagation();
@@ -29,11 +31,20 @@ const buttons = [
     },
   },
   {
+    name: 'クラス名管理',
+    icon: 'icons.classManager',
+    onClick: (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      openClassNameManager();
+    },
+  },
+  {
     type: "category_bar" // カテゴリごとのバー
   },
   {
     name: 'プライバシー機能',
-    icon: 'ti ti-lock-open ti-fw',
+    icon: 'icons.privacy',
     onClick: async (event) => {
       event.preventDefault();
       event.stopPropagation();
@@ -42,7 +53,7 @@ const buttons = [
   },
   {
     name: '楽しい機能',
-    icon: 'ti ti-device-gamepad ti-fw',
+    icon: 'icons.games',
     onClick: (event) => {
       event.preventDefault();
       event.stopPropagation();
@@ -51,7 +62,7 @@ const buttons = [
   },
   {
     name: 'その他の機能',
-    icon: 'ti ti-dots ti-fw',
+    icon: 'icons.other',
     onClick: async (event) => {
       event.preventDefault();
       event.stopPropagation();
@@ -63,7 +74,7 @@ const buttons = [
   },
   {
     name: '最初に見るところ',
-    icon: 'ti ti-settings-2 ti-fw',
+    icon: 'icons.help',
     onClick: (event) => {
       event.preventDefault();
       event.stopPropagation();
@@ -104,21 +115,21 @@ function createSettingsRow(dataVName) {
 
     const button = document.createElement('button');
     button.type = 'button';
-    button.className = '_button item mkp-settings-menu-item';
+    button.className = `${getClassName('settingsMenu.button')} mkp-settings-menu-item`;
     button.dataset.misskeyPatcherSettings = 'true';
 
     const icon = document.createElement('span');
-    icon.className = 'icon';
+    icon.className = getClassName('settingsMenu.icon');
     if (dataVName) {
       icon.setAttribute(dataVName, "")
     }
 
     const iconGlyph = document.createElement('i');
-    iconGlyph.className = value.icon;
+    iconGlyph.className = value.icon.startsWith('icons.') ? getClassName(value.icon) : value.icon;
     icon.append(iconGlyph);
 
     const text = document.createElement('span');
-    text.className = 'text';
+    text.className = getClassName('settingsMenu.label');
     text.textContent = value.name;
 
     button.append(icon, text);
@@ -141,7 +152,7 @@ export function injectSettingsMenuItem() {
   if (!location.pathname.startsWith('/settings')) return;
   if (document.querySelector('[data-misskey-patcher-settings-group="true"]')) return;
 
-  const superMenu = document.querySelector('.rrevdjwu');
+  const superMenu = document.querySelector(`.${getClassName('settingsMenu.container')}`);
   if (!superMenu) return;
 
   let dataVName;
@@ -153,14 +164,14 @@ export function injectSettingsMenuItem() {
 
   createSettingsRow(dataVName).forEach((category) => {
     const group = document.createElement('div');
-    group.className = 'group';
+    group.className = getClassName('settingsMenu.group');
     group.dataset.misskeyPatcherSettingsGroup = 'true';
     if (dataVName) {
       group.setAttribute(dataVName, "")
     }
 
     const items = document.createElement('div');
-    items.className = 'items';
+    items.className = getClassName('settingsMenu.items');
     if (dataVName) {
       items.setAttribute(dataVName, "")
     }

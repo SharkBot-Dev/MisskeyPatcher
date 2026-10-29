@@ -314,3 +314,36 @@
     padding-right: 14px;
   }
 }
+.mkp-class-name-dialog {
+  width: min(760px, calc(100vw - 24px));
+}
+
+.mkp-class-name-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 14px;
+  max-height: min(63vh, 560px);
+  overflow: auto;
+  padding: 16px 20px;
+}
+
+.mkp-class-name-row {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  font-size: 12px;
+}
+
+.mkp-class-name-row input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding: 8px;
+}
+
+@media (max-width: 600px) {
+  .mkp-class-name-dialog { width: calc(100vw - 16px); max-height: calc(100dvh - 16px); }
+  .mkp-class-name-list { grid-template-columns: minmax(0, 1fr); max-height: 55dvh; padding: 12px; }
+  .mkp-class-name-dialog .mkp-inline-header,
+  .mkp-class-name-dialog .mkp-inline-actions { padding-left: 12px; padding-right: 12px; }
+}

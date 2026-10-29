@@ -1,5 +1,6 @@
 import { state } from './state.js';
 import { emitPluginSidebarMoreEvent } from './bridge.js';
+import { getClassName } from '../className/default.js';
 
 function sortedSidebarMoreItems() {
   return [...state.pluginSidebarMoreItems.values()]
@@ -9,11 +10,11 @@ function sortedSidebarMoreItems() {
 function createMenuButton(item, eventName, dataVName) {
   const button = document.createElement('button');
   button.type = 'button';
-  button.className = '_button item mkp-sidebar-more-menu-item';
+  button.className = `${getClassName('sidebarMenu.button')} mkp-sidebar-more-menu-item`;
   button.dataset.misskeyPatcherSidebarMore = 'true';
 
   const icon = document.createElement('span');
-  icon.className = 'icon';
+  icon.className = getClassName('sidebarMenu.icon');
   const iconGlyph = document.createElement('i');
   iconGlyph.className = item.icon;
 
@@ -24,7 +25,7 @@ function createMenuButton(item, eventName, dataVName) {
   icon.append(iconGlyph);
 
   const text = document.createElement('span');
-  text.className = 'text';
+  text.className = getClassName('sidebarMenu.label');
   text.textContent = item.name;
 
   if (dataVName) {

@@ -30,8 +30,8 @@ export function getChromeStorage() {
       return;
     }
 
-    chrome.storage.local.get({ ...DEFAULTS, [INSTANCE_SETTINGS_KEY]: {} }, (items) => {
-      resolve(settingsForHost(items));
+    chrome.storage.local.get({ ...DEFAULTS, [INSTANCE_SETTINGS_KEY]: {}, classNameOverrides: {} }, (items) => {
+      resolve({ ...settingsForHost(items), classNameOverrides: items.classNameOverrides ?? {} });
     });
   });
 }

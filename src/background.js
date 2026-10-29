@@ -1,3 +1,5 @@
+import { classNames, metaData as classNameMetaData } from './className/default.js';
+
 const DEFAULTS = {
   enabled: true,
   showBadge: true,
@@ -93,17 +95,117 @@ function indentUserCode(userCode) {
     .join('\n');
 }
 
-function buildUserScriptCode(userCode, pluginName, extensionVersion) {
+function buildUserScriptCode(userCode, pluginName, extensionVersion, classNameOverrides = {}) {
   return `
 (() => {
   'use strict';
 
   const pluginName = ${JSON.stringify(pluginName)};
   const extensionVersion = ${JSON.stringify(extensionVersion)};
+  const defaultClassNames = ${JSON.stringify(classNames)};
+  const classNameMetadata = ${JSON.stringify(classNameMetaData)};
+  const classNameOverrides = ${JSON.stringify(classNameOverrides)};
   const state = {
     routeCallbacks: new Set(),
     lastUrl: location.href,
   };
+
+  function getClassName(path) {
+    const keys = String(path).split('.');
+    const flatOverride = classNameOverrides[path];
+    if (typeof flatOverride === 'string' && flatOverride.trim()) return flatOverride.trim();
+    let value = classNameOverrides;
+    for (const key of keys) value = value?.[key];
+    if (typeof value === 'string' && value.trim()) return value.trim();
+    if (classNameMetadata.instance && classNameMetadata.instance !== 'default'
+      && location.hostname.toLowerCase() !== classNameMetadata.instance.toLowerCase()) return '';
+    value = defaultClassNames;
+    for (const key of keys) value = value?.[key];
+    return typeof value === 'string' ? value : '';
+  }
+
+  function addClassName(element, className) {
+    if (!(element instanceof Element)) throw new TypeError('addClassName requires an Element');
+    const names = String(className ?? '').trim().split(/\\s+/).filter(Boolean);
+    if (names.length) element.classList.add(...names);
+    return element;
+  }
+
+  function addManagedClassName(element, path) {
+    return addClassName(element, getClassName(path));
+  }
+
+  // src/components/switch.js currently provides the switch and its label.
+  function createSwitch(options = {}) {
+    const { checked = false, defaultChecked = false, disabled = false, addClassName: extraClassName = '', name = null, onChange = () => {} } = options;
+    const root = document.createElement('div');
+    root.className = getClassName('switch.root');
+    if (disabled) addManagedClassName(root, 'switch.disabled');
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.className = getClassName('switch.input');
+    input.disabled = disabled;
+    input.checked = Boolean(checked);
+    input.defaultChecked = Boolean(defaultChecked);
+    if (extraClassName) addClassName(input, extraClassName);
+    if (name) input.name = name;
+    const button = document.createElement('span');
+    const knob = document.createElement('div');
+    const render = () => {
+      button.className = [getClassName('switch.toggle'), getClassName('switch.button'), input.checked ? getClassName('switch.buttonChecked') : ''].filter(Boolean).join(' ');
+      knob.className = [getClassName('switch.knob'), input.checked ? getClassName('switch.knobChecked') : ''].filter(Boolean).join(' ');
+      if (input.checked) button.setAttribute('aria-checked', 'true');
+      else button.removeAttribute('aria-checked');
+    };
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
+      if (disabled) return;
+      input.checked = !input.checked;
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    input.addEventListener('change', () => { render(); onChange(input.checked); });
+    button.append(knob);
+    root.append(input, button);
+    render();
+    input.getValue = () => input.checked;
+    input.setValue = (value) => {
+      if (disabled) return;
+      input.checked = Boolean(value);
+      render();
+    };
+    return root;
+  }
+
+  function createSwitchLabel(options = {}) {
+    const { label = '', text = '' } = options;
+    const root = document.createElement('span');
+    root.className = getClassName('switch.label');
+    const labelElement = document.createElement('span');
+    labelElement.className = getClassName('switch.labelSpan');
+    const labelText = document.createElement('span');
+    labelText.textContent = label;
+    labelElement.append(labelText);
+    root.append(labelElement);
+    if (text) {
+      const description = document.createElement('p');
+      description.className = getClassName('switch.labelText');
+      description.textContent = text;
+      root.append(description);
+    }
+    return root;
+  }
+
+  const components = Object.freeze({
+    switch: createSwitch,
+    switchLabel: createSwitchLabel,
+    createSwitch,
+    createSwitchLabel,
+    add(name, options = {}) {
+      if (name === 'switch') return createSwitch(options);
+      if (name === 'switchLabel') return createSwitchLabel(options);
+      throw new Error('Unknown component: ' + name);
+    },
+  });
 
   const ready = new Promise((resolve) => {
     if (document.documentElement) {
@@ -1003,6 +1105,11 @@ function buildUserScriptCode(userCode, pluginName, extensionVersion) {
       extensionVersion,
       installStyle,
       removeStyle,
+      getClassName,
+      addClassName,
+      addManagedClassName,
+      components,
+      addComponent: components.add,
       query,
       queryAll,
       waitForElement,
@@ -1096,7 +1203,7 @@ async function runUserScriptsSync() {
     return { ok: false, reason: 'userScripts API is not available. Enable Allow User Scripts or Developer mode for this extension.' };
   }
 
-  const items = await storageGet({ ...DEFAULTS, [INSTANCE_SETTINGS_KEY]: {} });
+  const items = await storageGet({ ...DEFAULTS, [INSTANCE_SETTINGS_KEY]: {}, classNameOverrides: {} });
   const legacy = legacySettings(items);
   const instances = items[INSTANCE_SETTINGS_KEY] ?? {};
   const extensionVersion = chrome.runtime.getManifest().version;
@@ -1112,7 +1219,7 @@ async function runUserScriptsSync() {
       registrations.push({
         id: scriptIdForPlugin(host, plugin),
         matches,
-        js: [{ code: buildUserScriptCode(plugin.code, plugin.name, extensionVersion) }],
+        js: [{ code: buildUserScriptCode(plugin.code, plugin.name, extensionVersion, items.classNameOverrides ?? {}) }],
         runAt: 'document_idle',
         world: 'USER_SCRIPT',
       });
@@ -1151,7 +1258,7 @@ chrome.runtime.onStartup.addListener(() => {
 });
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
-  if (areaName !== 'local' || !changes[INSTANCE_SETTINGS_KEY]) return;
+  if (areaName !== 'local' || (!changes[INSTANCE_SETTINGS_KEY] && !changes.classNameOverrides)) return;
 
   syncUserScripts().catch((error) => {
     console.error('[Misskey Patcher] failed to update user scripts', error);

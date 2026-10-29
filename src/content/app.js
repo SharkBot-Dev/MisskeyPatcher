@@ -7,6 +7,7 @@ import { openDisabledUserScriptsModal } from './help-modals.js';
 import { installStyle } from './styles.js';
 import { installRouteHooks, onRouteChange } from './routes.js';
 import { register, executeStartUp, executeOnRouteChange } from '../patch/patchs.js';
+import { setClassNameOverrides } from '../className/default.js';
 
 function observeApp() {
   state.observer?.disconnect();
@@ -23,6 +24,7 @@ function observeApp() {
 
 export async function main() {
   const settings = await getChromeStorage();
+  setClassNameOverrides(settings.classNameOverrides);
   if (!settings.enabled || !hostIsAllowed(settings.allowedHosts)) return;
   if (!(await waitForMisskey())) return;
 
